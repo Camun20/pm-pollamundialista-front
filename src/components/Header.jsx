@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import logoEmpresa from '../assets/logo-empresa.png';
+import logoMundial from '../assets/logo-mundial.png';
 
 export default function Header() {
   const { user } = useAuth();
@@ -14,7 +16,7 @@ export default function Header() {
         <div className="flex items-center gap-2 sm:gap-4 pl-8 sm:pl-12">
           {hasLogoEmpresa ? (
             <img
-              src="/src/assets/logo-empresa.png"
+              src={logoEmpresa}
               alt="Empresa"
               onError={() => setHasLogoEmpresa(false)}
               className="h-8 sm:h-10 w-auto object-contain rounded-md shrink-0"
@@ -23,7 +25,7 @@ export default function Header() {
 
           {hasLogoMundial ? (
             <img
-              src="/src/assets/logo-mundial.png"
+              src={logoMundial}
               alt="Mundial 2026"
               onError={() => setHasLogoMundial(false)}
               className="h-10 sm:h-12 w-auto object-contain shrink-0"

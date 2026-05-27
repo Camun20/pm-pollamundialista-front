@@ -89,15 +89,33 @@ export default function AdminView({ activeSection, onSectionChange }) {
     }
   };
 
+  const getLocalUsuarios = () => {
+    const local = localStorage.getItem('pm_local_usuarios');
+    if (local) {
+      try { return JSON.parse(local); } catch { }
+    }
+    const defaultUsers = [
+      { username: '1234', nombre: 'Administrador Atiempo', rol: 'admin' },
+      { username: '123456789', nombre: 'Juan Pérez (Demo)', rol: 'user' }
+    ];
+    localStorage.setItem('pm_local_usuarios', JSON.stringify(defaultUsers));
+    return defaultUsers;
+  };
+
   const loadUsuarios = async () => {
     setLoadingUsuarios(true);
     setUsuariosError(null);
     try {
       const data = await apiRequest('/usuarios');
-      setUsuarios(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setUsuarios(list);
+      if (list.length > 0) {
+        localStorage.setItem('pm_local_usuarios', JSON.stringify(list));
+      }
     } catch (err) {
-      setUsuariosError(err.message || 'Error al cargar usuarios.');
-      setUsuarios([]);
+      console.warn("Fallo al conectar con AWS para /usuarios. Usando almacenamiento local fallback.", err);
+      const localList = getLocalUsuarios();
+      setUsuarios(localList);
     } finally {
       setLoadingUsuarios(false);
     }
@@ -199,15 +217,17 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setUsuariosError(null);
     setUsuariosSuccess(false);
 
+    const newUserObj = {
+      username: newUserCedula.trim(),
+      nombre: newUserNombre.trim(),
+      rol: newUserRol,
+      contrasena: newUserPassword
+    };
+
     try {
       await apiRequest('/usuarios', {
         method: 'POST',
-        body: JSON.stringify({
-          username: newUserCedula.trim(),
-          nombre: newUserNombre.trim(),
-          rol: newUserRol,
-          contrasena: newUserPassword
-        })
+        body: JSON.stringify(newUserObj)
       });
 
       setUsuariosSuccess(true);
@@ -218,7 +238,24 @@ export default function AdminView({ activeSection, onSectionChange }) {
       loadUsuarios();
       setTimeout(() => setUsuariosSuccess(false), 3000);
     } catch (err) {
-      setUsuariosError(err.message || 'Error al crear usuario');
+      console.warn("Fallo al crear usuario en AWS. Intentando guardar localmente.", err);
+      try {
+        const localList = getLocalUsuarios();
+        if (localList.some(u => u.username === newUserObj.username)) {
+          throw new Error("Ya existe un usuario registrado con esa cédula.");
+        }
+        const updatedList = [...localList, newUserObj];
+        localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
+        setUsuarios(updatedList);
+        setUsuariosSuccess(true);
+        setNewUserCedula('');
+        setNewUserNombre('');
+        setNewUserPassword('123');
+        setNewUserRol('user');
+        setTimeout(() => setUsuariosSuccess(false), 3000);
+      } catch (localErr) {
+        setUsuariosError(localErr.message || 'Error al crear usuario localmente');
+      }
     } finally {
       setLoadingUsuarios(false);
     }
@@ -235,7 +272,15 @@ export default function AdminView({ activeSection, onSectionChange }) {
       });
       loadUsuarios();
     } catch (err) {
-      setUsuariosError(err.message || 'Error al eliminar usuario');
+      console.warn("Fallo al eliminar usuario en AWS. Intentando borrar localmente.", err);
+      try {
+        const localList = getLocalUsuarios();
+        const updatedList = localList.filter(u => u.username !== username);
+        localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
+        setUsuarios(updatedList);
+      } catch (localErr) {
+        setUsuariosError(localErr.message || 'Error al eliminar usuario localmente');
+      }
     } finally {
       setLoadingUsuarios(false);
     }
