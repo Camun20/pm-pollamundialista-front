@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+
+@theme {
+  --font-sans: 'Outfit', sans-serif;
+  --color-gold-500: #d4af37;
+  --color-gold-600: #b8901c;
+  --color-gold-700: #967210;
+  --color-brand-blue-900: #0d1b2a;
+  --color-brand-blue-800: #1b263b;
+  --color-brand-blue-700: #415a77;
+  --color-brand-blue-600: #778da9;
+  --color-brand-blue-500: #e0e1dd;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: #0b0f19;
+  color: #f3f4f6;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+::-webkit-scrollbar-thumb {
+  background: #1b263b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
+}
+
+/* Glassmorphism utility card */
+.glass-card {
+  background: rgba(27, 38, 59, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #f3e5ab 0%, #d4af37 50%, #aa8c2c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
