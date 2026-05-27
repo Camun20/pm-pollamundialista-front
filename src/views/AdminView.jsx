@@ -63,10 +63,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
     if (local) {
       try { return JSON.parse(local); } catch { }
     }
-    const defaultPartidos = [
-      { id: "partido-1", equipo1: "Argentina", equipo2: "Brasil", fecha: "2026-06-15", hora: "20:00", golesRealLocal: null, golesRealVisitante: null },
-      { id: "partido-2", equipo1: "España", equipo2: "Alemania", fecha: "2026-06-16", hora: "18:00", golesRealLocal: null, golesRealVisitante: null }
-    ];
+    const defaultPartidos = [];
     localStorage.setItem('pm_local_partidos', JSON.stringify(defaultPartidos));
     return defaultPartidos;
   };
@@ -92,19 +89,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
         }));
       }
 
-      // Si el server nos da una lista vacía o estática mock, combinamos con localStorage
-      const localList = getLocalPartidos();
-      
-      // Combinamos dando prioridad a los creados localmente para que aparezcan al crearlos
-      const combinedMap = new Map();
-      localList.forEach(p => combinedMap.set(p.id, p));
-      partidosList.forEach(p => {
-        if (!combinedMap.has(p.id)) {
-          combinedMap.set(p.id, p);
-        }
-      });
-
-      const finalPartidos = Array.from(combinedMap.values());
+      // Usar la lista oficial de AWS por completo sin combinar con locales duplicados
+      const finalPartidos = partidosList;
       setPartidos(finalPartidos);
       localStorage.setItem('pm_local_partidos', JSON.stringify(finalPartidos));
       
@@ -280,14 +266,14 @@ export default function AdminView({ activeSection, onSectionChange }) {
         })
       });
     } catch (err) {
-      console.warn("No se pudo registrar partido en AWS (Lambda mock), guardando localmente en fallback.");
+      console.warn("No se pudo registrar partido en AWS, guardando localmente en fallback.", err);
+      // 2. Solo persistir localmente en fallback si AWS de verdad falló
+      const localList = getLocalPartidos();
+      const updated = [newMatch, ...localList];
+      localStorage.setItem('pm_local_partidos', JSON.stringify(updated));
+      setPartidos(updated);
     }
 
-    // 2. Persistir localmente en fallback siempre para que sea visible
-    const localList = getLocalPartidos();
-    const updated = [newMatch, ...localList];
-    localStorage.setItem('pm_local_partidos', JSON.stringify(updated));
-    setPartidos(updated);
 
     // Limpiar formulario
     setCreateSuccess(true);
