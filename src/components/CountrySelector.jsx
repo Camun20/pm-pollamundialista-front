@@ -60,12 +60,14 @@ export default function CountrySelector({ value, onChange, placeholder = "Selecc
       >
         {selected ? (
           <>
-            <img
-              src={getFlagUrl(selected.code)}
-              alt={selected.name}
-              className="h-5 w-5 rounded-full object-cover aspect-square"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
+            <div className="inline-flex h-5 w-5 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 items-center justify-center bg-brand-blue-950">
+              <img
+                src={getFlagUrl(selected.code)}
+                alt={selected.name}
+                className="w-full h-full object-cover scale-110"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
             <span className="flex-1 font-semibold text-white">{selected.name}</span>
           </>
         ) : (
@@ -104,12 +106,14 @@ export default function CountrySelector({ value, onChange, placeholder = "Selecc
                       value === team.name ? 'text-gold-400 font-bold' : 'text-gray-200'
                     }`}
                   >
-                    <img
-                      src={getFlagUrl(team.code)}
-                      alt={team.name}
-                      className="h-5 w-5 rounded-full object-cover aspect-square"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+                    <div className="inline-flex h-5 w-5 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 items-center justify-center bg-brand-blue-950">
+                      <img
+                        src={getFlagUrl(team.code)}
+                        alt={team.name}
+                        className="w-full h-full object-cover scale-110"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
                     {team.name}
                   </button>
                 </li>

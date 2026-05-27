@@ -462,11 +462,15 @@ export default function AdminView({ activeSection, onSectionChange }) {
     }
   };
 
-  // Renderizar bandera del país
+  // Renderizar bandera del país perfectamente redonda
   const renderFlag = (teamName) => {
     const flagUrl = getCountryFlagUrl(teamName);
     if (flagUrl) {
-      return <img src={flagUrl} alt={teamName} className="h-6 w-6 rounded-full object-cover aspect-square shadow-sm inline-block mr-2" />;
+      return (
+        <div className="inline-flex h-6 w-6 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 align-middle mr-2 bg-brand-blue-950">
+          <img src={flagUrl} alt={teamName} className="w-full h-full object-cover scale-110" />
+        </div>
+      );
     }
     return null;
   };
@@ -500,12 +504,12 @@ export default function AdminView({ activeSection, onSectionChange }) {
             <form onSubmit={handleCreateMatch} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Equipo Local</label>
-                <CountrySelector selectedCountry={equipo1} onSelect={setEquipo1} placeholder="Selecciona Local" />
+                <CountrySelector value={equipo1} onChange={setEquipo1} placeholder="Selecciona Local" />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Equipo Visitante</label>
-                <CountrySelector selectedCountry={equipo2} onSelect={setEquipo2} placeholder="Selecciona Visitante" />
+                <CountrySelector value={equipo2} onChange={setEquipo2} placeholder="Selecciona Visitante" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -636,13 +640,13 @@ export default function AdminView({ activeSection, onSectionChange }) {
         </div>
       )}
 
-      {/* 2. PESTAÑA: PRONÓSTICOS POR PARTIDO */}
+      {/* 2. PESTAÑA: PRONÓSTICOS POR PARTIDO (SECCIONADO POR PARTIDOS) */}
       {activeTab === 'pronosticos' && (
         <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-lg font-bold gold-gradient-text">Monitoreo de Pronósticos</h3>
-              <p className="text-xs text-gray-400">Visualiza todas las apuestas de los jugadores registrados en el sistema.</p>
+              <p className="text-xs text-gray-400">Pronósticos de los jugadores agrupados por cada partido programado.</p>
             </div>
             <button 
               onClick={loadPronosticos}
@@ -664,37 +668,50 @@ export default function AdminView({ activeSection, onSectionChange }) {
               <RefreshCw size={16} className="animate-spin text-gold-500" />
               <span>Cargando pronósticos...</span>
             </div>
-          ) : pronosticos.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">No hay pronósticos registrados todavía.</div>
+          ) : partidos.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">No hay partidos programados todavía.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {pronosticos.map((p, idx) => {
-                const matchedPartido = partidos.find(partido => partido.id === p.partidoId);
+            <div className="space-y-6">
+              {partidos.map((partido) => {
+                // Filtrar pronósticos correspondientes a este partido
+                const pronosticosPartido = pronosticos.filter(
+                  p => p.partidoId === partido.id
+                );
+
                 return (
-                  <div key={idx} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col justify-between gap-3 hover:border-gold-500/20 transition-all">
-                    <div className="flex justify-between items-center border-b border-brand-blue-800/50 pb-2">
-                      <span className="text-xs font-black text-gold-500 uppercase tracking-widest">{p.nombreJugador}</span>
-                      <span className="text-[10px] text-gray-500 font-bold">CC @{p.userCedula}</span>
-                    </div>
-
-                    {matchedPartido ? (
-                      <div className="flex items-center justify-between text-sm py-1">
-                        <span className="font-semibold text-white flex items-center gap-1">
-                          {renderFlag(matchedPartido.equipo1)} {matchedPartido.equipo1}
-                        </span>
-                        <span className="text-xs font-black px-1.5 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
-                        <span className="font-semibold text-white flex items-center gap-1">
-                          {matchedPartido.equipo2} {renderFlag(matchedPartido.equipo2)}
-                        </span>
+                  <div key={partido.id} className="p-5 rounded-2xl bg-brand-blue-900/30 border border-brand-blue-800/50 space-y-4 hover:border-gold-500/20 transition-all">
+                    {/* Encabezado del Partido */}
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-brand-blue-800/50">
+                      <div className="flex items-center gap-2">
+                        {renderFlag(partido.equipo1)}
+                        <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo1}</span>
+                        <span className="text-xs font-black px-2 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
+                        {renderFlag(partido.equipo2)}
+                        <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo2}</span>
                       </div>
-                    ) : (
-                      <div className="text-xs text-gray-500">Partido ID: {p.partidoId}</div>
-                    )}
-
-                    <div className="flex justify-between items-center pt-2 border-t border-brand-blue-800/50">
-                      <span className="text-xs text-gray-400">Pronóstico:</span>
-                      <span className="text-lg font-black text-emerald-400 tracking-widest">{p.marcadorCombinado}</span>
+                      <div className="text-xs text-gray-400 font-bold bg-[#090d16] px-3 py-1 rounded-full border border-brand-blue-800">
+                        {partido.fecha} | {partido.hora}
+                      </div>
                     </div>
+
+                    {/* Pronósticos de los usuarios */}
+                    {pronosticosPartido.length === 0 ? (
+                      <div className="text-xs text-gray-500 italic py-2">Ningún jugador ha enviado pronóstico para este partido todavía.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {pronosticosPartido.map((p, idx) => (
+                          <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{p.nombreJugador}</p>
+                              <p className="text-[10px] text-gray-500 font-semibold">CC @{p.userCedula}</p>
+                            </div>
+                            <div className="shrink-0 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
+                              <span className="text-sm font-black text-emerald-400 tracking-wider">{p.marcadorCombinado}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -702,6 +719,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
           )}
         </div>
       )}
+
 
       {/* 3. PESTAÑA: GESTIONAR USUARIOS */}
       {activeTab === 'usuarios' && (
