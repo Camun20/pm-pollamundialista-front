@@ -43,16 +43,19 @@ export default function UserView({ activeSection }) {
         apiRequest('/pronosticos')
       ]);
 
-      setPartidos(todosPartidos);
-      setTodosPronosticos(pronosticosCargados);
+      const partidosList = Array.isArray(todosPartidos) ? todosPartidos : [];
+      const pronosticosList = Array.isArray(pronosticosCargados) ? pronosticosCargados : [];
+
+      setPartidos(partidosList);
+      setTodosPronosticos(pronosticosList);
 
       // Filtrar pronósticos para el usuario actual (usando su cédula)
-      const filtrados = pronosticosCargados.filter(p => p.usuario === user.username);
+      const filtrados = pronosticosList.filter(p => p.usuario === user.username);
       setMisPronosticos(filtrados);
 
       // Inicializar los inputs de apuestas
       const inputsIniciales = {};
-      todosPartidos.forEach(partido => {
+      partidosList.forEach(partido => {
         const pronosticoExistente = filtrados.find(p => p.partidoId === partido.id);
         if (pronosticoExistente) {
           inputsIniciales[partido.id] = {

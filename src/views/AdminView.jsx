@@ -55,11 +55,12 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setLoadingPartidos(true);
     try {
       const data = await apiRequest('/partidos');
-      setPartidos(data);
+      const partidosList = Array.isArray(data) ? data : [];
+      setPartidos(partidosList);
       
       // Inicializar inputs de marcador real
       const scores = {};
-      data.forEach(p => {
+      partidosList.forEach(p => {
         scores[p.id] = {
           local: p.golesRealLocal !== null ? p.golesRealLocal.toString() : '',
           visitante: p.golesRealVisitante !== null ? p.golesRealVisitante.toString() : ''
@@ -68,6 +69,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
       setRealScores(scores);
     } catch (err) {
       console.error(err);
+      setPartidos([]);
     } finally {
       setLoadingPartidos(false);
     }
@@ -78,9 +80,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setPronosticosError(null);
     try {
       const data = await apiRequest('/pronosticos');
-      setPronosticos(data);
+      setPronosticos(Array.isArray(data) ? data : []);
     } catch (err) {
       setPronosticosError(err.message || 'Error al cargar los pronósticos.');
+      setPronosticos([]);
     } finally {
       setLoadingPronosticos(false);
     }
@@ -91,9 +94,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setUsuariosError(null);
     try {
       const data = await apiRequest('/usuarios');
-      setUsuarios(data);
+      setUsuarios(Array.isArray(data) ? data : []);
     } catch (err) {
       setUsuariosError(err.message || 'Error al cargar usuarios.');
+      setUsuarios([]);
     } finally {
       setLoadingUsuarios(false);
     }
