@@ -63,7 +63,7 @@ export default function CountrySelector({ value, onChange, placeholder = "Selecc
             <img
               src={getFlagUrl(selected.code)}
               alt={selected.name}
-              className="h-5 w-7 object-cover rounded"
+              className="h-5 w-5 rounded-full object-cover aspect-square"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
             <span className="flex-1 font-semibold text-white">{selected.name}</span>
@@ -107,7 +107,7 @@ export default function CountrySelector({ value, onChange, placeholder = "Selecc
                     <img
                       src={getFlagUrl(team.code)}
                       alt={team.name}
-                      className="h-4 w-6 object-cover rounded"
+                      className="h-5 w-5 rounded-full object-cover aspect-square"
                       onError={(e) => { e.target.style.display = 'none'; }}
                     />
                     {team.name}

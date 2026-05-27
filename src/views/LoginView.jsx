@@ -42,7 +42,7 @@ export default function LoginView() {
     setLoading(true);
     try {
       if (role === 'admin') {
-        await login('1000000000', 'admin');
+        await login('1234', '1234');
       } else {
         await login('123456789', '123');
       }

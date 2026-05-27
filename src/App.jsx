@@ -10,12 +10,44 @@ function MainAppContent() {
   const { user, loading } = useAuth();
   const [activeSection, setActiveSection] = useState('partidos');
 
-  // Resetear la sección al cambiar de usuario o iniciar sesión
+  // Control de protección de rutas y redirección al login
+  useEffect(() => {
+    const handleRouteGuard = () => {
+      const hash = window.location.hash.replace('#/', '');
+      
+      if (!user) {
+        if (window.location.hash !== '') {
+          window.location.hash = ''; // Redirige al login
+        }
+      } else if (hash) {
+        const validAdminSections = ['partidos', 'pronosticos', 'usuarios'];
+        const validUserSections = ['mis-pronosticos', 'partidos'];
+        const isValid = user.rol === 'admin' 
+          ? validAdminSections.includes(hash) 
+          : validUserSections.includes(hash);
+          
+        if (isValid) {
+          setActiveSection(hash);
+        } else {
+          window.location.hash = `/${activeSection}`;
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleRouteGuard);
+    handleRouteGuard();
+
+    return () => window.removeEventListener('hashchange', handleRouteGuard);
+  }, [user, activeSection]);
+
+  // Sincronizar el Hash cuando cambia la sección activa
   useEffect(() => {
     if (user) {
-      setActiveSection(user.rol === 'admin' ? 'partidos' : 'partidos');
+      window.location.hash = `/${activeSection}`;
+    } else {
+      window.location.hash = '';
     }
-  }, [user]);
+  }, [activeSection, user]);
 
   if (loading) {
     return (
@@ -47,7 +79,7 @@ function MainAppContent() {
       </main>
 
       <footer className="border-t border-brand-blue-800 bg-brand-blue-900/20 py-6 text-center text-xs text-gray-500">
-        <p>🏆 Polla Mundialista v1.0.0 © 2026 - Conexión Serverless AWS Activa ⚡</p>
+        <p>Polla Mundialista Atiempo v1.0.0 © 2026 - Conexión Serverless AWS Activa</p>
       </footer>
     </div>
   );

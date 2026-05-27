@@ -4,9 +4,9 @@
 
 @theme {
   --font-sans: 'Outfit', sans-serif;
-  --color-gold-500: #d4af37;
-  --color-gold-600: #b8901c;
-  --color-gold-700: #967210;
+  --color-gold-500: #1a93e5;
+  --color-gold-600: #157ec4;
+  --color-gold-700: #0f629c;
   --color-brand-blue-900: #0d1b2a;
   --color-brand-blue-800: #1b263b;
   --color-brand-blue-700: #415a77;
@@ -34,7 +34,7 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #d4af37;
+  background: #1a93e5;
 }
 
 /* Glassmorphism utility card */
@@ -42,12 +42,12 @@ body {
   background: rgba(27, 38, 59, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(26, 147, 229, 0.15);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 .gold-gradient-text {
-  background: linear-gradient(135deg, #f3e5ab 0%, #d4af37 50%, #aa8c2c 100%);
+  background: linear-gradient(135deg, #7ad3ff 0%, #1a93e5 50%, #0d6ba8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

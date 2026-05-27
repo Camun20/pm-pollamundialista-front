@@ -34,7 +34,7 @@ export default function Header() {
 
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-wider gold-gradient-text m-0 p-0 leading-none">
-              POLLA MUNDIALISTA
+              POLLA MUNDIALISTA ATIEMPO
             </h1>
             <p className="text-[10px] text-brand-blue-600 font-bold uppercase tracking-widest mt-0.5">
               Mundial 2026

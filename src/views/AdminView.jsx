@@ -248,7 +248,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const renderFlag = (teamName) => {
     const flagUrl = getCountryFlagUrl(teamName);
     if (flagUrl) {
-      return <img src={flagUrl} alt={teamName} className="h-5 w-7 object-cover rounded shadow-sm inline-block mr-2" />;
+      return <img src={flagUrl} alt={teamName} className="h-6 w-6 rounded-full object-cover aspect-square shadow-sm inline-block mr-2" />;
     }
     return null;
   };
