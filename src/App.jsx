@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import LoginView from './views/LoginView';
 import AdminView from './views/AdminView';
 import UserView from './views/UserView';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function MainAppContent() {
   const { user, loading } = useAuth();
@@ -72,9 +73,13 @@ function MainAppContent() {
         {!user ? (
           <LoginView />
         ) : user.rol === 'admin' ? (
-          <AdminView activeSection={activeSection} onSectionChange={setActiveSection} />
+          <ErrorBoundary>
+            <AdminView activeSection={activeSection} onSectionChange={setActiveSection} />
+          </ErrorBoundary>
         ) : (
-          <UserView activeSection={activeSection} />
+          <ErrorBoundary>
+            <UserView activeSection={activeSection} />
+          </ErrorBoundary>
         )}
       </main>
 

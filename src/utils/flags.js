@@ -6,10 +6,12 @@ import { FIFA_2026_TEAMS, getFlagUrl } from './fifa2026Teams';
  * @returns {string|null} URL de la bandera o null si no se encuentra
  */
 export function getCountryFlagUrl(countryName) {
-  if (!countryName) return null;
+  if (!countryName || typeof countryName !== 'string') return null;
   
   const normalizeText = (text) => 
-    text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    typeof text === 'string' 
+      ? text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+      : "";
 
   const normalizedInput = normalizeText(countryName);
   
