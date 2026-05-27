@@ -41,18 +41,18 @@ export default function ApiConfigModal({ isOpen, onClose }) {
                     : "bg-brand-blue-800 text-gray-400 border-transparent hover:bg-brand-blue-700"
                 }`}
               >
-                API AWS Real
+                Servidor Real
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-1">
               {isMock 
-                ? "Usa base de datos simulada en localStorage para probar de inmediato sin servidor." 
-                : "Se conectará directamente a tu endpoint de AWS API Gateway mediante Fetch."}
+                ? "Usa base de datos simulada localmente para probar de inmediato." 
+                : "Se conectará directamente al servidor principal mediante internet."}
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-brand-blue-600 mb-1">URL Base de API AWS</label>
+            <label className="block text-sm font-semibold text-brand-blue-600 mb-1">URL Base del Servidor</label>
             <input
               type="text"
               value={apiUrl}

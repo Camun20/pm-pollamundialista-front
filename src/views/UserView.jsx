@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
+import { getCountryFlagUrl } from '../utils/flags';
 
 export default function UserView() {
   const { user } = useAuth();
   
   // Datos
   const [partidos, setPartidos] = useState([]);
+  const [todosPronosticos, setTodosPronosticos] = useState([]);
   const [misPronosticos, setMisPronosticos] = useState([]);
   
   // Estados de carga e interacción
@@ -14,7 +16,7 @@ export default function UserView() {
   const [error, setError] = useState(null);
   
   // Selección temporal de marcador por partidoId
-  // { [partidoId]: { golesLocal: 0, golesVisitante: 0 } }
+  // { [partidoId]: { golesLocal: '', golesVisitante: '' } }
   const [pronosticoInputs, setPronosticoInputs] = useState({});
   const [apuestaLoading, setApuestaLoading] = useState({});
   const [apuestaError, setApuestaError] = useState({});
@@ -24,31 +26,31 @@ export default function UserView() {
     setLoading(true);
     setError(null);
     try {
-      // Cargar partidos y todos los pronósticos en paralelo
-      const [todosPartidos, todosPronosticos] = await Promise.all([
+      const [todosPartidos, pronosticosCargados] = await Promise.all([
         apiRequest('/partidos'),
         apiRequest('/pronosticos')
       ]);
 
       setPartidos(todosPartidos);
+      setTodosPronosticos(pronosticosCargados);
 
       // Filtrar pronósticos para el usuario actual
-      const filtrados = todosPronosticos.filter(p => p.usuario === user.username);
+      const filtrados = pronosticosCargados.filter(p => p.usuario === user.username);
       setMisPronosticos(filtrados);
 
-      // Inicializar los dropdowns de apuestas para partidos donde el usuario ya apostó
+      // Inicializar los inputs de apuestas
       const inputsIniciales = {};
       todosPartidos.forEach(partido => {
         const pronosticoExistente = filtrados.find(p => p.partidoId === partido.id);
         if (pronosticoExistente) {
           inputsIniciales[partido.id] = {
-            golesLocal: pronosticoExistente.golesLocal,
-            golesVisitante: pronosticoExistente.golesVisitante
+            golesLocal: pronosticoExistente.golesLocal.toString(),
+            golesVisitante: pronosticoExistente.golesVisitante.toString()
           };
         } else {
           inputsIniciales[partido.id] = {
-            golesLocal: 0,
-            golesVisitante: 0
+            golesLocal: '',
+            golesVisitante: ''
           };
         }
       });
@@ -65,22 +67,48 @@ export default function UserView() {
     loadData();
   }, [user.username]);
 
+  // Manejar el cambio de marcador numérico, limitando de 0 a 20 y bloqueando letras
   const handleInputChange = (partidoId, campo, valor) => {
+    // Si está vacío, permitirlo temporalmente para poder escribir
+    if (valor === '') {
+      setPronosticoInputs(prev => ({
+        ...prev,
+        [partidoId]: {
+          ...prev[partidoId],
+          [campo]: ''
+        }
+      }));
+      return;
+    }
+
+    // Permitir solo dígitos numéricos
+    if (!/^\d+$/.test(valor)) return;
+
+    const num = parseInt(valor);
+    if (num > 20) return; // Limitar a máximo 20
+
     setPronosticoInputs(prev => ({
       ...prev,
       [partidoId]: {
         ...prev[partidoId],
-        [campo]: parseInt(valor)
+        [campo]: valor
       }
     }));
-    // Limpiar alertas de este partido al cambiar valores
+
+    // Limpiar alertas
     setApuestaError(prev => ({ ...prev, [partidoId]: null }));
     setApuestaSuccess(prev => ({ ...prev, [partidoId]: false }));
   };
 
   const handleEnviarPronostico = async (partidoId) => {
     const seleccion = pronosticoInputs[partidoId];
-    if (!seleccion) return;
+    if (!seleccion || seleccion.golesLocal === '' || seleccion.golesVisitante === '') {
+      setApuestaError(prev => ({
+        ...prev,
+        [partidoId]: "Por favor escribe un marcador válido para ambos equipos (0-20)."
+      }));
+      return;
+    }
 
     setApuestaLoading(prev => ({ ...prev, [partidoId]: true }));
     setApuestaError(prev => ({ ...prev, [partidoId]: null }));
@@ -92,19 +120,21 @@ export default function UserView() {
         body: JSON.stringify({
           usuario: user.username,
           partidoId,
-          golesLocal: seleccion.golesLocal,
-          golesVisitante: seleccion.golesVisitante
+          golesLocal: parseInt(seleccion.golesLocal),
+          golesVisitante: parseInt(seleccion.golesVisitante)
         })
       });
 
       setApuestaSuccess(prev => ({ ...prev, [partidoId]: true }));
       
-      // Volver a cargar la lista de mis pronósticos para reflejar cambios
-      const todosPronosticos = await apiRequest('/pronosticos');
-      setMisPronosticos(todosPronosticos.filter(p => p.usuario === user.username));
+      // Recargar datos actualizados
+      await loadData();
+      
+      setTimeout(() => {
+        setApuestaSuccess(prev => ({ ...prev, [partidoId]: false }));
+      }, 4000);
       
     } catch (err) {
-      // Capturamos el error específico del backend si el marcador está bloqueado por otro amigo
       setApuestaError(prev => ({ 
         ...prev, 
         [partidoId]: err.message || "Error al registrar pronóstico" 
@@ -112,6 +142,15 @@ export default function UserView() {
     } finally {
       setApuestaLoading(prev => ({ ...prev, [partidoId]: false }));
     }
+  };
+
+  // Renderizar bandera del país
+  const renderFlag = (teamName) => {
+    const flagUrl = getCountryFlagUrl(teamName);
+    if (flagUrl) {
+      return <img src={flagUrl} alt={teamName} className="h-6 w-9 object-cover rounded shadow-sm inline-block mr-2" />;
+    }
+    return <span className="inline-block mr-2 text-sm">⚽</span>;
   };
 
   if (loading) {
@@ -149,7 +188,7 @@ export default function UserView() {
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               🏆 Mis Pronósticos ({misPronosticos.length})
             </h2>
-            <p className="text-sm text-gray-400">Los marcadores que ya registraste y tienes asegurados.</p>
+            <p className="text-sm text-gray-400">Tus marcadores registrados para el gran premio.</p>
           </div>
           <button 
             onClick={loadData}
@@ -165,24 +204,43 @@ export default function UserView() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {misPronosticos.map((pronostico) => (
-              <div 
-                key={pronostico.id} 
-                className="glass-card rounded-2xl p-4 border-l-4 border-l-gold-500 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all"
-              >
-                <div>
-                  <p className="text-xs text-brand-blue-600 font-bold uppercase tracking-wider mb-1">
-                    Marcador Asegurado 🔒
-                  </p>
-                  <p className="text-base font-semibold text-white">
-                    {pronostico.equipo1} vs {pronostico.equipo2}
-                  </p>
+            {misPronosticos.map((pronostico) => {
+              const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
+              const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
+              const esGanador = tieneMarcadorReal && pronostico.golesLocal === partidoOriginal.golesRealLocal && pronostico.golesVisitante === partidoOriginal.golesRealVisitante;
+
+              return (
+                <div 
+                  key={pronostico.id} 
+                  className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${
+                    esGanador ? 'border-l-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-l-gold-500'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${esGanador ? 'text-emerald-400' : 'text-gold-500'}`}>
+                        {tieneMarcadorReal ? (esGanador ? '👑 Marcador Acertado' : '❌ Finalizado') : '⚽ Pronóstico Guardado'}
+                      </span>
+                    </div>
+                    <p className="text-base font-semibold text-white">
+                      {renderFlag(pronostico.equipo1)} {pronostico.equipo1} vs {pronostico.equipo2} {renderFlag(pronostico.equipo2)}
+                    </p>
+                    {tieneMarcadorReal && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Resultado real del encuentro: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${
+                    esGanador 
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' 
+                      : 'bg-gold-500/10 text-gold-500 border-gold-500/20'
+                  }`}>
+                    {pronostico.golesLocal} - {pronostico.golesVisitante}
+                  </div>
                 </div>
-                <div className="bg-gold-500/10 text-gold-500 font-extrabold text-lg px-4 py-2 rounded-xl border border-gold-500/20">
-                  {pronostico.golesLocal} - {pronostico.golesVisitante}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -190,24 +248,29 @@ export default function UserView() {
       {/* SECCIÓN 2: PARTIDOS ACTIVOS Y APOSTAR */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-          ⚽ Partidos Activos y Apostar
+          ⚽ Partidos Activos y Apuestas de Amigos
         </h2>
         <p className="text-sm text-gray-400 mb-6">
-          Selecciona tu marcador (hasta 5 goles). Recuerda: **el primer amigo en registrar un marcador exacto lo bloquea** para los demás.
+          Escribe tu marcador (máximo 20 goles). **Si repites el marcador de otro amigo, el premio de este partido se dividirá entre los ganadores.** ¡Mira abajo lo que han apostado los demás!
         </p>
 
         {partidos.length === 0 ? (
           <div className="glass-card rounded-2xl p-8 text-center text-gray-500">
-            No hay partidos activos en este momento. Dile a tu Administrador que cree encuentros.
+            No hay partidos activos en este momento.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
             {partidos.map((partido) => {
-              const inputs = pronosticoInputs[partido.id] || { golesLocal: 0, golesVisitante: 0 };
+              const inputs = pronosticoInputs[partido.id] || { golesLocal: '', golesVisitante: '' };
               const yaPronosticado = misPronosticos.some(p => p.partidoId === partido.id);
               const isLoading = apuestaLoading[partido.id];
               const matchError = apuestaError[partido.id];
               const matchSuccess = apuestaSuccess[partido.id];
+
+              // Pronósticos de OTROS usuarios para este partido
+              const otrosPronosticos = todosPronosticos.filter(
+                p => p.partidoId === partido.id && p.usuario !== user.username
+              );
 
               return (
                 <div 
@@ -216,22 +279,29 @@ export default function UserView() {
                     yaPronosticado ? 'border-gold-500/30 bg-gold-500/5' : 'border-gold-500/10'
                   }`}
                 >
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
                     {/* Detalles del partido */}
-                    <div className="flex-1 text-center md:text-left">
-                      <div className="flex items-center justify-center md:justify-start gap-2 mb-2 text-xs font-semibold text-brand-blue-600">
+                    <div className="flex-1 text-center lg:text-left">
+                      <div className="flex items-center justify-center lg:justify-start gap-2 mb-2 text-xs font-semibold text-brand-blue-600">
                         <span>📅 {partido.fecha}</span>
                         <span>•</span>
                         <span>⏰ {partido.hora}</span>
                         {yaPronosticado && (
                           <span className="ml-2 bg-gold-500/10 text-gold-500 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                            Ya Votaste
+                            Tu Apuesta Registrada
+                          </span>
+                        )}
+                        {partido.golesRealLocal !== null && (
+                          <span className="ml-2 bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                            Terminado: {partido.golesRealLocal} - {partido.golesRealVisitante}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-center md:justify-start gap-3 text-lg font-bold text-white">
+                      <div className="flex items-center justify-center lg:justify-start gap-3 text-lg font-bold text-white">
+                        {renderFlag(partido.equipo1)}
                         <span>{partido.equipo1}</span>
                         <span className="text-xs text-gray-500 font-normal">VS</span>
+                        {renderFlag(partido.equipo2)}
                         <span>{partido.equipo2}</span>
                       </div>
                     </div>
@@ -241,15 +311,14 @@ export default function UserView() {
                       {/* Goles Local */}
                       <div className="flex flex-col items-center">
                         <span className="text-[10px] uppercase text-gray-500 mb-1 font-bold">Local</span>
-                        <select
+                        <input
+                          type="text"
                           value={inputs.golesLocal}
                           onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
-                          className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold"
-                        >
-                          {[0, 1, 2, 3, 4, 5].map(n => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                        </select>
+                          placeholder="0"
+                          disabled={partido.golesRealLocal !== null}
+                          className="w-16 bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold disabled:opacity-50"
+                        />
                       </div>
 
                       <span className="text-xl font-bold text-gold-500 mt-4">-</span>
@@ -257,44 +326,66 @@ export default function UserView() {
                       {/* Goles Visitante */}
                       <div className="flex flex-col items-center">
                         <span className="text-[10px] uppercase text-gray-500 mb-1 font-bold">Visita</span>
-                        <select
+                        <input
+                          type="text"
                           value={inputs.golesVisitante}
                           onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
-                          className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold"
-                        >
-                          {[0, 1, 2, 3, 4, 5].map(n => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                        </select>
+                          placeholder="0"
+                          disabled={partido.golesRealLocal !== null}
+                          className="w-16 bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold disabled:opacity-50"
+                        />
                       </div>
 
                       {/* Botón para enviar */}
                       <button
                         onClick={() => handleEnviarPronostico(partido.id)}
-                        disabled={isLoading}
+                        disabled={isLoading || partido.golesRealLocal !== null}
                         className={`ml-4 px-5 py-3 rounded-xl font-extrabold text-sm transition-all flex items-center gap-2 ${
                           yaPronosticado 
                             ? "bg-brand-blue-800 text-gold-500 hover:bg-brand-blue-700 hover:text-white" 
                             : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 shadow-lg shadow-gold-500/10"
-                        } active:scale-95 disabled:opacity-50`}
+                        } active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
-                        {isLoading ? "Enviando... ⏳" : yaPronosticado ? "Modificar Pronóstico" : "Apostar 🚀"}
+                        {isLoading ? "Guardando... ⏳" : yaPronosticado ? "Modificar Pronóstico" : "Guardar Pronóstico 🚀"}
                       </button>
                     </div>
                   </div>
 
-                  {/* Mensajes y Alertas específicas por partido */}
+                  {/* Mensajes de feedback */}
                   {matchSuccess && (
-                    <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold animate-pulse">
-                      🎉 ¡Tu pronóstico ha sido registrado exitosamente en el backend!
+                    <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                      ¡Tu marcador ha sido guardado de forma exitosa!
                     </div>
                   )}
-
                   {matchError && (
-                    <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2 animate-bounce">
+                    <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
                       <span>⚠️</span> {matchError}
                     </div>
                   )}
+
+                  {/* SUB-SECCIÓN: PRONÓSTICOS DE OTROS AMIGOS PARA ESTE PARTIDO */}
+                  <div className="mt-6 pt-4 border-t border-brand-blue-800/80">
+                    <p className="text-xs font-bold uppercase tracking-wider text-brand-blue-600 mb-2">
+                      Lo que han apostado los amigos ({otrosPronosticos.length}):
+                    </p>
+                    {otrosPronosticos.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">Ningún amigo ha apostado aún. ¡Sé el primero!</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {otrosPronosticos.map((p) => (
+                          <div 
+                            key={p.id} 
+                            className="bg-brand-blue-950/60 border border-brand-blue-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 flex items-center gap-2"
+                          >
+                            <span className="font-bold text-white">👤 {p.usuario}</span>
+                            <span className="bg-gold-500/15 text-gold-500 border border-gold-500/25 px-1.5 py-0.5 rounded font-extrabold text-[10px]">
+                              {p.golesLocal} - {p.golesVisitante}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

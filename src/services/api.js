@@ -1,7 +1,6 @@
 // Configuración de la API para la Polla Mundialista
 
-// URL base de AWS API Gateway (se puede sobreescribir mediante la UI de configuración o localStorage)
-const DEFAULT_API_URL = "https://tu-api-gateway.execute-api.us-east-1.amazonaws.com/prod";
+const DEFAULT_API_URL = import.meta.env.VITE_API_URL || "https://6ztxr0ymsk.execute-api.us-east-1.amazonaws.com";
 
 export const getApiBaseUrl = () => {
   return localStorage.getItem("pm_api_url") || DEFAULT_API_URL;
@@ -11,10 +10,9 @@ export const setApiBaseUrl = (url) => {
   localStorage.setItem("pm_api_url", url);
 };
 
-// Determina si se está usando el modo simulador (Mock)
 export const isMockModeEnabled = () => {
   const stored = localStorage.getItem("pm_mock_mode");
-  return stored === null ? true : stored === "true"; // Por defecto iniciamos en mock para que sea interactivo de inmediato
+  return stored === null ? true : stored === "true";
 };
 
 export const setMockMode = (enabled) => {
@@ -25,9 +23,9 @@ export const setMockMode = (enabled) => {
 const initializeMockData = () => {
   if (!localStorage.getItem("mock_partidos")) {
     const defaultPartidos = [
-      { id: "p1", equipo1: "Argentina", equipo2: "Francia", fecha: "2026-06-15", hora: "15:00" },
-      { id: "p2", equipo1: "Brasil", equipo2: "Alemania", fecha: "2026-06-16", hora: "13:00" },
-      { id: "p3", equipo1: "Colombia", equipo2: "España", fecha: "2026-06-17", hora: "19:00" }
+      { id: "p1", equipo1: "Argentina", equipo2: "Francia", fecha: "2026-06-15", hora: "15:00", golesRealLocal: null, golesRealVisitante: null },
+      { id: "p2", equipo1: "Brasil", equipo2: "Alemania", fecha: "2026-06-16", hora: "13:00", golesRealLocal: null, golesRealVisitante: null },
+      { id: "p3", equipo1: "Colombia", equipo2: "España", fecha: "2026-06-17", hora: "19:00", golesRealLocal: null, golesRealVisitante: null }
     ];
     localStorage.setItem("mock_partidos", JSON.stringify(defaultPartidos));
   }
@@ -40,6 +38,15 @@ const initializeMockData = () => {
     ];
     localStorage.setItem("mock_pronosticos", JSON.stringify(defaultPronosticos));
   }
+
+  if (!localStorage.getItem("mock_usuarios")) {
+    const defaultUsuarios = [
+      { username: "admin", nombre: "Administrador", rol: "admin", contrasena: "admin" },
+      { username: "carlos_gomez", nombre: "Carlos Gómez", rol: "user", contrasena: "123" },
+      { username: "maria_sanchez", nombre: "María Sánchez", rol: "user", contrasena: "123" }
+    ];
+    localStorage.setItem("mock_usuarios", JSON.stringify(defaultUsuarios));
+  }
 };
 
 initializeMockData();
@@ -48,14 +55,14 @@ initializeMockData();
 export const apiRequest = async (path, options = {}) => {
   const mockMode = isMockModeEnabled();
   const url = `${getApiBaseUrl()}${path}`;
-  
+
   if (!mockMode) {
-    // LLAMADO REAL A AWS API GATEWAY
+    // LLAMADO REAL A API
     const headers = {
       "Content-Type": "application/json",
       ...(options.headers || {})
     };
-    
+
     const fetchOptions = {
       ...options,
       headers
@@ -75,7 +82,7 @@ export const apiRequest = async (path, options = {}) => {
   }
 
   // --- SIMULADOR DE MOCK BACKEND ---
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simula latencia de red
+  await new Promise(resolve => setTimeout(resolve, 600)); // Latencia simulada
   
   const method = options.method || "GET";
   const body = options.body ? JSON.parse(options.body) : null;
@@ -83,26 +90,62 @@ export const apiRequest = async (path, options = {}) => {
   // RUTAS DE AUTENTICACIÓN
   if (path === "/login" && method === "POST") {
     const { username, password } = body;
-    if (username === "admin" && password === "admin") {
-      return { username: "admin", nombre: "Administrador", rol: "admin" };
-    } else if (username && password) {
-      return { username, nombre: username.charAt(0).toUpperCase() + username.slice(1), rol: "user" };
+    const usuarios = JSON.parse(localStorage.getItem("mock_usuarios") || "[]");
+    const usuarioEncontrado = usuarios.find(u => u.username === username.toLowerCase() && u.contrasena === password);
+    
+    if (usuarioEncontrado) {
+      return { username: usuarioEncontrado.username, nombre: usuarioEncontrado.nombre, rol: usuarioEncontrado.rol };
     }
     throw new Error("Usuario o contraseña incorrectos");
+  }
+
+  // RUTAS DE USUARIOS (Administrador)
+  if (path === "/usuarios") {
+    const usuarios = JSON.parse(localStorage.getItem("mock_usuarios") || "[]");
+    
+    if (method === "GET") {
+      // Retornamos sin contraseñas por seguridad
+      return usuarios.map(({ contrasena, ...u }) => u);
+    }
+    
+    if (method === "POST") {
+      const { username, nombre, rol, contrasena } = body;
+      const userLower = username.toLowerCase();
+      if (usuarios.some(u => u.username === userLower)) {
+        throw new Error("El usuario ya existe");
+      }
+      const nuevoUsuario = { username: userLower, nombre, rol, contrasena: contrasena || "123" };
+      usuarios.push(nuevoUsuario);
+      localStorage.setItem("mock_usuarios", JSON.stringify(usuarios));
+      return { username: nuevoUsuario.username, nombre: nuevoUsuario.nombre, rol: nuevoUsuario.rol };
+    }
+  }
+
+  if (path.startsWith("/usuarios/") && method === "DELETE") {
+    const userToDelete = path.split("/").pop();
+    let usuarios = JSON.parse(localStorage.getItem("mock_usuarios") || "[]");
+    if (userToDelete === "admin") {
+      throw new Error("No se puede eliminar el administrador por defecto");
+    }
+    usuarios = usuarios.filter(u => u.username !== userToDelete);
+    localStorage.setItem("mock_usuarios", JSON.stringify(usuarios));
+    return { success: true };
   }
 
   // RUTAS DE PARTIDOS
   if (path === "/partidos") {
     const partidos = JSON.parse(localStorage.getItem("mock_partidos") || "[]");
-    
+
     if (method === "GET") {
       return partidos;
     }
-    
+
     if (method === "POST") {
       const nuevoPartido = {
         id: "p_" + Date.now(),
-        ...body
+        ...body,
+        golesRealLocal: null,
+        golesRealVisitante: null
       };
       partidos.push(nuevoPartido);
       localStorage.setItem("mock_partidos", JSON.stringify(partidos));
@@ -110,34 +153,36 @@ export const apiRequest = async (path, options = {}) => {
     }
   }
 
+  if (path.startsWith("/partidos/resultado") && method === "POST") {
+    const { partidoId, golesRealLocal, golesRealVisitante } = body;
+    const partidos = JSON.parse(localStorage.getItem("mock_partidos") || "[]");
+    const index = partidos.findIndex(p => p.id === partidoId);
+    
+    if (index !== -1) {
+      partidos[index].golesRealLocal = golesRealLocal === "" || golesRealLocal === null ? null : parseInt(golesRealLocal);
+      partidos[index].golesRealVisitante = golesRealVisitante === "" || golesRealVisitante === null ? null : parseInt(golesRealVisitante);
+      localStorage.setItem("mock_partidos", JSON.stringify(partidos));
+      return partidos[index];
+    }
+    throw new Error("Partido no encontrado");
+  }
+
   // RUTAS DE PRONÓSTICOS
   if (path === "/pronosticos") {
     const pronosticos = JSON.parse(localStorage.getItem("mock_pronosticos") || "[]");
-    
+
     if (method === "GET") {
       return pronosticos;
     }
 
     if (method === "POST") {
       const { usuario, partidoId, golesLocal, golesVisitante } = body;
-      
-      // Regla de negocio: Verificar si el marcador exacto ya fue bloqueado por otro amigo en ese mismo partido
-      const marcadorDuplicado = pronosticos.find(
-        p => p.partidoId === partidoId && 
-             p.golesLocal === parseInt(golesLocal) && 
-             p.golesVisitante === parseInt(golesVisitante) &&
-             p.usuario !== usuario // de otro usuario
-      );
 
-      if (marcadorDuplicado) {
-        throw new Error("Este marcador ya fue bloqueado por otro usuario");
-      }
-
-      // Obtener equipos
       const partidos = JSON.parse(localStorage.getItem("mock_partidos") || "[]");
       const partido = partidos.find(p => p.id === partidoId) || {};
 
-      // Eliminar pronóstico anterior del mismo usuario en este partido si existe
+      // Retiramos validación de marcador duplicado para permitir repeticiones
+
       const pronosticosFiltrados = pronosticos.filter(
         p => !(p.usuario === usuario && p.partidoId === partidoId)
       );
@@ -158,5 +203,5 @@ export const apiRequest = async (path, options = {}) => {
     }
   }
 
-  throw new Error("Endpoint no encontrado en el simulador mock");
+  throw new Error("Endpoint no encontrado");
 };
