@@ -25,25 +25,57 @@ export const AuthProvider = ({ children }) => {
    * @param {string} password - Contraseña
    */
   const login = async (cedula, password) => {
+    // 1. Admin hardcodeado para pruebas fáciles
     if (cedula === '1234' && password === '1234') {
       const mockAdmin = {
         username: '1234',
         nombre: 'Administrador Atiempo',
-        rol: 'admin'
+        rol: 'admin',
+        mustChangePassword: false
       };
       setUser(mockAdmin);
       localStorage.setItem('pm_user', JSON.stringify(mockAdmin));
       return mockAdmin;
     }
 
-    const userData = await apiRequest('/login', {
-      method: 'POST',
-      body: JSON.stringify({ cedula, password })
-    });
-    
-    setUser(userData);
-    localStorage.setItem('pm_user', JSON.stringify(userData));
-    return userData;
+    try {
+      // 2. Intentar consultar contra el servidor de AWS
+      const userData = await apiRequest('/login', {
+        method: 'POST',
+        body: JSON.stringify({ cedula, password })
+      });
+      
+      setUser(userData);
+      localStorage.setItem('pm_user', JSON.stringify(userData));
+      return userData;
+    } catch (err) {
+      console.warn("Fallo login de AWS. Intentando buscar en usuarios locales de localStorage.", err);
+      
+      // 3. Fallback en base de datos local (localStorage)
+      const localUsersStr = localStorage.getItem('pm_local_usuarios');
+      if (localUsersStr) {
+        const localUsers = JSON.parse(localUsersStr);
+        const matched = localUsers.find(u => u.username === cedula);
+        
+        if (matched) {
+          const matchedPassword = matched.contrasena || matched.contraseña || '123';
+          if (matchedPassword === password) {
+            const sessionUser = {
+              username: matched.username,
+              nombre: matched.nombre,
+              rol: matched.rol || 'user',
+              // Si la contraseña coincide con la contraseña por defecto '123', forzar cambio
+              mustChangePassword: matchedPassword === '123' && matched.mustChangePassword !== false
+            };
+            setUser(sessionUser);
+            localStorage.setItem('pm_user', JSON.stringify(sessionUser));
+            return sessionUser;
+          }
+        }
+      }
+      
+      throw new Error("Cédula o contraseña incorrectas.");
+    }
   };
 
   const logout = () => {
@@ -51,8 +83,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('pm_user');
   };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('pm_user', JSON.stringify(updatedUser));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../services/api';
 import { getCountryFlagUrl } from '../utils/flags';
 import CountrySelector from '../components/CountrySelector';
+import EditUserModal from '../components/EditUserModal';
 import { 
   Calendar, 
   BarChart3, 
@@ -13,7 +14,10 @@ import {
   UserPlus, 
   Clock, 
   CheckCircle, 
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Pencil
 } from 'lucide-react';
 
 export default function AdminView({ activeSection, onSectionChange }) {
@@ -46,33 +50,97 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const [newUserNombre, setNewUserNombre] = useState('');
   const [newUserRol, setNewUserRol] = useState('user');
   const [newUserPassword, setNewUserPassword] = useState('123');
+  const [showPassword, setShowPassword] = useState(false);
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [usuariosError, setUsuariosError] = useState(null);
   const [usuariosSuccess, setUsuariosSuccess] = useState(false);
+
+  // --- EDICIÓN DE USUARIOS ---
+  const [editingUser, setEditingUser] = useState(null);
+
+  const getLocalPartidos = () => {
+    const local = localStorage.getItem('pm_local_partidos');
+    if (local) {
+      try { return JSON.parse(local); } catch { }
+    }
+    const defaultPartidos = [
+      { id: "partido-1", equipo1: "Argentina", equipo2: "Brasil", fecha: "2026-06-15", hora: "20:00", golesRealLocal: null, golesRealVisitante: null },
+      { id: "partido-2", equipo1: "España", equipo2: "Alemania", fecha: "2026-06-16", hora: "18:00", golesRealLocal: null, golesRealVisitante: null }
+    ];
+    localStorage.setItem('pm_local_partidos', JSON.stringify(defaultPartidos));
+    return defaultPartidos;
+  };
 
   // Carga inicial y recarga
   const loadPartidos = async () => {
     setLoadingPartidos(true);
     try {
+      // Intentar obtener partidos de AWS
       const data = await apiRequest('/partidos');
-      const partidosList = Array.isArray(data) ? data : [];
-      setPartidos(partidosList);
+      let partidosList = [];
+      if (data && Array.isArray(data)) {
+        partidosList = data;
+      } else if (data && Array.isArray(data.partidos)) {
+        partidosList = data.partidos.map(p => ({
+          id: p.partido_id || p.id,
+          equipo1: p.equipo_a || p.equipo1,
+          equipo2: p.equipo_b || p.equipo2,
+          fecha: p.fecha?.split('T')[0] || p.fecha || '',
+          hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+          golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
+          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+        }));
+      }
+
+      // Si el server nos da una lista vacía o estática mock, combinamos con localStorage
+      const localList = getLocalPartidos();
+      
+      // Combinamos dando prioridad a los creados localmente para que aparezcan al crearlos
+      const combinedMap = new Map();
+      localList.forEach(p => combinedMap.set(p.id, p));
+      partidosList.forEach(p => {
+        if (!combinedMap.has(p.id)) {
+          combinedMap.set(p.id, p);
+        }
+      });
+
+      const finalPartidos = Array.from(combinedMap.values());
+      setPartidos(finalPartidos);
+      localStorage.setItem('pm_local_partidos', JSON.stringify(finalPartidos));
       
       // Inicializar inputs de marcador real
       const scores = {};
-      partidosList.forEach(p => {
+      finalPartidos.forEach(p => {
         scores[p.id] = {
-          local: p.golesRealLocal !== null ? p.golesRealLocal.toString() : '',
-          visitante: p.golesRealVisitante !== null ? p.golesRealVisitante.toString() : ''
+          local: p.golesRealLocal !== null && p.golesRealLocal !== undefined ? p.golesRealLocal.toString() : '',
+          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : ''
         };
       });
       setRealScores(scores);
     } catch (err) {
-      console.error(err);
-      setPartidos([]);
+      console.warn("Fallo carga de partidos de AWS. Cargando desde localStorage.", err);
+      const localList = getLocalPartidos();
+      setPartidos(localList);
+      
+      const scores = {};
+      localList.forEach(p => {
+        scores[p.id] = {
+          local: p.golesRealLocal !== null && p.golesRealLocal !== undefined ? p.golesRealLocal.toString() : '',
+          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : ''
+        };
+      });
+      setRealScores(scores);
     } finally {
       setLoadingPartidos(false);
     }
+  };
+
+  const getLocalPronosticos = () => {
+    const local = localStorage.getItem('pm_local_pronosticos');
+    if (local) {
+      try { return JSON.parse(local); } catch { }
+    }
+    return [];
   };
 
   const loadPronosticos = async () => {
@@ -80,10 +148,32 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setPronosticosError(null);
     try {
       const data = await apiRequest('/pronosticos');
-      setPronosticos(Array.isArray(data) ? data : []);
+      let pronosticosList = [];
+      if (Array.isArray(data)) {
+        pronosticosList = data;
+      } else if (data && Array.isArray(data.pronosticos)) {
+        pronosticosList = data.pronosticos.map(pr => ({
+          partidoId: pr.partido_id || pr.partidoId,
+          marcadorCombinado: pr.marcador_combinado || pr.marcadorCombinado,
+          userCedula: pr.user_id || pr.userCedula,
+          nombreJugador: pr.nombreJugador || 'Jugador',
+          estado: pr.estado
+        }));
+      }
+
+      const localList = getLocalPronosticos();
+      const combined = [...localList];
+      pronosticosList.forEach(pr => {
+        if (!combined.some(c => c.partidoId === pr.partidoId && c.userCedula === pr.userCedula)) {
+          combined.push(pr);
+        }
+      });
+
+      setPronosticos(combined);
+      localStorage.setItem('pm_local_pronosticos', JSON.stringify(combined));
     } catch (err) {
-      setPronosticosError(err.message || 'Error al cargar los pronósticos.');
-      setPronosticos([]);
+      console.warn("Fallo al cargar pronósticos de AWS. Usando almacenamiento local fallback.", err);
+      setPronosticos(getLocalPronosticos());
     } finally {
       setLoadingPronosticos(false);
     }
@@ -95,8 +185,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       try { return JSON.parse(local); } catch { }
     }
     const defaultUsers = [
-      { username: '1234', nombre: 'Administrador Atiempo', rol: 'admin' },
-      { username: '123456789', nombre: 'Juan Pérez (Demo)', rol: 'user' }
+      { username: '1234', nombre: 'Administrador Atiempo', rol: 'admin', contrasena: '1234', mustChangePassword: false },
+      { username: '123456789', nombre: 'Juan Pérez (Demo)', rol: 'user', contrasena: '123', mustChangePassword: true }
     ];
     localStorage.setItem('pm_local_usuarios', JSON.stringify(defaultUsers));
     return defaultUsers;
@@ -108,10 +198,25 @@ export default function AdminView({ activeSection, onSectionChange }) {
     try {
       const data = await apiRequest('/usuarios');
       const list = Array.isArray(data) ? data : [];
-      setUsuarios(list);
-      if (list.length > 0) {
-        localStorage.setItem('pm_local_usuarios', JSON.stringify(list));
-      }
+      
+      const localList = getLocalUsuarios();
+      const combinedMap = new Map();
+      localList.forEach(u => combinedMap.set(u.username, u));
+      list.forEach(u => {
+        if (!combinedMap.has(u.username)) {
+          combinedMap.set(u.username, {
+            username: u.username,
+            nombre: u.nombre,
+            rol: u.rol || 'user',
+            contrasena: u.contrasena || '123',
+            mustChangePassword: u.mustChangePassword !== undefined ? u.mustChangePassword : true
+          });
+        }
+      });
+
+      const finalList = Array.from(combinedMap.values());
+      setUsuarios(finalList);
+      localStorage.setItem('pm_local_usuarios', JSON.stringify(finalList));
     } catch (err) {
       console.warn("Fallo al conectar con AWS para /usuarios. Usando almacenamiento local fallback.", err);
       const localList = getLocalUsuarios();
@@ -133,7 +238,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
       loadUsuarios();
     } else if (activeTab === 'partidos') {
       loadPartidos();
-      loadPronosticos(); // Cargar también pronósticos para ver ganadores en vivo
+      loadPronosticos(); 
     }
   }, [activeTab]);
 
@@ -153,7 +258,18 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setCreateError(null);
     setCreateSuccess(false);
 
+    const newMatch = {
+      id: "partido-" + Date.now(),
+      equipo1,
+      equipo2,
+      fecha,
+      hora,
+      golesRealLocal: null,
+      golesRealVisitante: null
+    };
+
     try {
+      // 1. Intentar enviar a AWS
       await apiRequest('/partidos', {
         method: 'POST',
         body: JSON.stringify({
@@ -163,18 +279,25 @@ export default function AdminView({ activeSection, onSectionChange }) {
           hora
         })
       });
-      setCreateSuccess(true);
-      setEquipo1('');
-      setEquipo2('');
-      setFecha('');
-      setHora('');
-      loadPartidos();
-      setTimeout(() => setCreateSuccess(false), 3000);
     } catch (err) {
-      setCreateError(err.message || 'Error al crear el partido');
-    } finally {
-      setLoadingPartidos(false);
+      console.warn("No se pudo registrar partido en AWS (Lambda mock), guardando localmente en fallback.");
     }
+
+    // 2. Persistir localmente en fallback siempre para que sea visible
+    const localList = getLocalPartidos();
+    const updated = [newMatch, ...localList];
+    localStorage.setItem('pm_local_partidos', JSON.stringify(updated));
+    setPartidos(updated);
+
+    // Limpiar formulario
+    setCreateSuccess(true);
+    setEquipo1('');
+    setEquipo2('');
+    setFecha('');
+    setHora('');
+    loadPartidos();
+    setTimeout(() => setCreateSuccess(false), 3000);
+    setLoadingPartidos(false);
   };
 
   // Guardar Marcador Real
@@ -183,10 +306,11 @@ export default function AdminView({ activeSection, onSectionChange }) {
     if (!scores) return;
 
     setSavingScoreId(partidoId);
-    try {
-      const golesLocal = scores.local === '' ? null : parseInt(scores.local);
-      const golesVisitante = scores.visitante === '' ? null : parseInt(scores.visitante);
+    const golesLocal = scores.local === '' ? null : parseInt(scores.local);
+    const golesVisitante = scores.visitante === '' ? null : parseInt(scores.visitante);
 
+    try {
+      // Intentar en AWS
       await apiRequest('/partidos/resultado', {
         method: 'POST',
         body: JSON.stringify({
@@ -195,14 +319,34 @@ export default function AdminView({ activeSection, onSectionChange }) {
           golesRealVisitante: golesVisitante
         })
       });
-
-      // Recargar partidos y pronósticos
-      await Promise.all([loadPartidos(), loadPronosticos()]);
     } catch (err) {
-      alert(err.message || "Error al actualizar resultado real");
-    } finally {
-      setSavingScoreId(null);
+      console.warn("No se pudo actualizar marcador en AWS (Lambda mock), actualizando localmente.");
     }
+
+    // Actualizar localmente
+    const localList = getLocalPartidos();
+    const updated = localList.map(p => {
+      if (p.id === partidoId) {
+        return { ...p, golesRealLocal: golesLocal, golesRealVisitante: golesVisitante };
+      }
+      return p;
+    });
+    localStorage.setItem('pm_local_partidos', JSON.stringify(updated));
+    setPartidos(updated);
+
+    // Recalcular pronósticos ganados si existen localmente
+    const localPronosticos = getLocalPronosticos();
+    const updatedPronos = localPronosticos.map(pr => {
+      if (pr.partidoId === partidoId) {
+        // Lógica simple de puntuación si es necesario o cambio de estado
+        return { ...pr, estado: 'procesado' };
+      }
+      return pr;
+    });
+    localStorage.setItem('pm_local_pronosticos', JSON.stringify(updatedPronos));
+
+    await Promise.all([loadPartidos(), loadPronosticos()]);
+    setSavingScoreId(null);
   };
 
   // Crear Usuario
@@ -221,7 +365,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       username: newUserCedula.trim(),
       nombre: newUserNombre.trim(),
       rol: newUserRol,
-      contrasena: newUserPassword
+      contrasena: newUserPassword,
+      mustChangePassword: newUserPassword === '123'
     };
 
     try {
@@ -229,33 +374,26 @@ export default function AdminView({ activeSection, onSectionChange }) {
         method: 'POST',
         body: JSON.stringify(newUserObj)
       });
+    } catch (err) {
+      console.warn("Fallo al crear usuario en AWS. Intentando guardar localmente.", err);
+    }
 
+    try {
+      const localList = getLocalUsuarios();
+      if (localList.some(u => u.username === newUserObj.username)) {
+        throw new Error("Ya existe un usuario registrado con esa cédula.");
+      }
+      const updatedList = [...localList, newUserObj];
+      localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
+      setUsuarios(updatedList);
       setUsuariosSuccess(true);
       setNewUserCedula('');
       setNewUserNombre('');
       setNewUserPassword('123');
       setNewUserRol('user');
-      loadUsuarios();
       setTimeout(() => setUsuariosSuccess(false), 3000);
-    } catch (err) {
-      console.warn("Fallo al crear usuario en AWS. Intentando guardar localmente.", err);
-      try {
-        const localList = getLocalUsuarios();
-        if (localList.some(u => u.username === newUserObj.username)) {
-          throw new Error("Ya existe un usuario registrado con esa cédula.");
-        }
-        const updatedList = [...localList, newUserObj];
-        localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
-        setUsuarios(updatedList);
-        setUsuariosSuccess(true);
-        setNewUserCedula('');
-        setNewUserNombre('');
-        setNewUserPassword('123');
-        setNewUserRol('user');
-        setTimeout(() => setUsuariosSuccess(false), 3000);
-      } catch (localErr) {
-        setUsuariosError(localErr.message || 'Error al crear usuario localmente');
-      }
+    } catch (localErr) {
+      setUsuariosError(localErr.message || 'Error al crear usuario localmente');
     } finally {
       setLoadingUsuarios(false);
     }
@@ -270,19 +408,50 @@ export default function AdminView({ activeSection, onSectionChange }) {
       await apiRequest(`/usuarios/${username}`, {
         method: 'DELETE'
       });
-      loadUsuarios();
     } catch (err) {
       console.warn("Fallo al eliminar usuario en AWS. Intentando borrar localmente.", err);
-      try {
-        const localList = getLocalUsuarios();
-        const updatedList = localList.filter(u => u.username !== username);
-        localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
-        setUsuarios(updatedList);
-      } catch (localErr) {
-        setUsuariosError(localErr.message || 'Error al eliminar usuario localmente');
-      }
+    }
+
+    try {
+      const localList = getLocalUsuarios();
+      const updatedList = localList.filter(u => u.username !== username);
+      localStorage.setItem('pm_local_usuarios', JSON.stringify(updatedList));
+      setUsuarios(updatedList);
+    } catch (localErr) {
+      setUsuariosError(localErr.message || 'Error al eliminar usuario localmente');
     } finally {
       setLoadingUsuarios(false);
+    }
+  };
+
+  // Guardar Edición de Usuario
+  const handleSaveEditUser = async (updatedUser) => {
+    // 1. Guardar localmente
+    const localList = getLocalUsuarios();
+    const updated = localList.map(u => {
+      if (u.username === updatedUser.username) {
+        return {
+          ...u,
+          nombre: updatedUser.nombre,
+          rol: updatedUser.rol,
+          contrasena: updatedUser.contrasena,
+          // Si cambian la contraseña de '123' a otra, quitar la obligación de reset
+          mustChangePassword: updatedUser.contrasena === '123'
+        };
+      }
+      return u;
+    });
+    localStorage.setItem('pm_local_usuarios', JSON.stringify(updated));
+    setUsuarios(updated);
+
+    // 2. Intentar guardar en AWS
+    try {
+      await apiRequest(`/usuarios/${updatedUser.username}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedUser)
+      });
+    } catch (e) {
+      console.warn("No se pudo actualizar usuario en AWS (Lambda mock), pero ya quedó editado localmente.");
     }
   };
 
@@ -304,50 +473,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
 
   return (
     <div className="max-w-6xl mx-auto px-4 mt-8 animate-fade-in space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-white tracking-wide">Panel de Control General</h2>
-          <p className="text-sm text-gray-400">Gestiona partidos, resultados, pronósticos y usuarios del sistema.</p>
-        </div>
-      </div>
-
-      {/* Navegación por Pestañas */}
-      <div className="flex border-b border-brand-blue-800 gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('partidos')}
-          className={`py-3 px-6 text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'partidos'
-              ? 'border-gold-500 text-gold-500 bg-gold-500/5'
-              : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
-          }`}
-        >
-          <Calendar size={16} />
-          <span>Partidos y Resultados</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('pronosticos')}
-          className={`py-3 px-6 text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'pronosticos'
-              ? 'border-gold-500 text-gold-500 bg-gold-500/5'
-              : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
-          }`}
-        >
-          <BarChart3 size={16} />
-          <span>Pronósticos por Partido</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('usuarios')}
-          className={`py-3 px-6 text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
-            activeTab === 'usuarios'
-              ? 'border-gold-500 text-gold-500 bg-gold-500/5'
-              : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
-          }`}
-        >
-          <Users size={16} />
-          <span>Gestionar Usuarios</span>
-        </button>
-      </div>
-
+      {/* ELIMINADAS PESTAÑAS INTERNAS Y TÍTULO GENERAL - Sidebar controla el ruteo limpio */}
+      
       {/* CONTENIDO DE PESTAÑAS */}
       
       {/* 1. PESTAÑA: PARTIDOS Y RESULTADOS */}
@@ -360,7 +487,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
             {createSuccess && (
               <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle size={14} />
-                <span>¡Partido programado exitosamente!</span>
+                <span>¡Partido creado correctamente!</span>
               </div>
             )}
             {createError && (
@@ -371,44 +498,44 @@ export default function AdminView({ activeSection, onSectionChange }) {
             )}
 
             <form onSubmit={handleCreateMatch} className="space-y-4">
-              <CountrySelector 
-                label="Local (Equipo 1)"
-                value={equipo1}
-                onChange={setEquipo1}
-                placeholder="Selecciona equipo local"
-              />
-
-              <CountrySelector 
-                label="Visitante (Equipo 2)"
-                value={equipo2}
-                onChange={setEquipo2}
-                placeholder="Selecciona equipo visitante"
-              />
+              <div>
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Equipo Local</label>
+                <CountrySelector selectedCountry={equipo1} onSelect={setEquipo1} placeholder="Selecciona Local" />
+              </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Fecha</label>
-                <input
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Equipo Visitante</label>
+                <CountrySelector selectedCountry={equipo2} onSelect={setEquipo2} placeholder="Selecciona Visitante" />
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Hora (Colombia)</label>
-                <input
-                  type="time"
-                  value={hora}
-                  onChange={(e) => setHora(e.target.value)}
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Fecha</label>
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="w-full bg-brand-blue-900 border border-gold-500/10 text-white rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Hora</label>
+                  <input
+                    type="time"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                    className="w-full bg-brand-blue-900 border border-gold-500/10 text-white rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  />
+                </div>
               </div>
+
               <button
                 type="submit"
+                disabled={loadingPartidos}
                 className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10"
               >
                 <Plus size={16} />
-                <span>Crear Encuentro</span>
+                <span>{loadingPartidos ? 'Creando...' : 'Crear Partido'}</span>
               </button>
             </form>
           </div>
@@ -418,8 +545,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold gold-gradient-text">Partidos Programados</h3>
               <button 
-                onClick={loadPartidos} 
-                className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+                onClick={loadPartidos}
+                className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95 animate-none"
               >
                 <RefreshCw size={14} />
               </button>
@@ -428,139 +555,78 @@ export default function AdminView({ activeSection, onSectionChange }) {
             {loadingPartidos ? (
               <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
                 <RefreshCw size={16} className="animate-spin text-gold-500" />
-                <span>Cargando encuentros...</span>
+                <span>Cargando partidos...</span>
               </div>
             ) : partidos.length === 0 ? (
-              <div className="py-12 text-center text-gray-500">No se han registrado partidos.</div>
+              <div className="py-12 text-center text-gray-500">No hay partidos programados en este momento.</div>
             ) : (
               <div className="space-y-4">
                 {partidos.map((partido) => {
                   const score = realScores[partido.id] || { local: '', visitante: '' };
-                  const partidoPronosticos = pronosticos.filter(p => p.partidoId === partido.id);
-                  
-                  // Identificar ganadores si el marcador real existe
-                  const tieneMarcadorReal = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
-                  const ganadores = tieneMarcadorReal 
-                    ? partidoPronosticos.filter(p => p.golesLocal === partido.golesRealLocal && p.golesVisitante === partido.golesRealVisitante)
-                    : [];
+                  const isSaving = savingScoreId === partido.id;
 
                   return (
-                    <div 
-                      key={partido.id} 
-                      className="border border-brand-blue-800 rounded-xl p-4 bg-brand-blue-900/10 hover:bg-brand-blue-950/20 transition-all space-y-4"
-                    >
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div className="text-xs text-gray-400 flex items-center gap-1.5">
-                          <Clock size={12} className="text-brand-blue-600" />
-                          <span>{partido.fecha}</span> • <span>{partido.hora}</span>
-                        </div>
-                        
-                        {/* Marcador Real */}
-                        <div className="flex items-center gap-2 bg-brand-blue-900/60 p-2 rounded-lg border border-gold-500/10">
-                          <span className="text-[10px] font-bold text-brand-blue-600 uppercase tracking-wider">Marcador Real:</span>
-                          <input
-                            type="text"
-                            value={score.local}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || (/^\d+$/.test(val) && parseInt(val) <= 20)) {
-                                setRealScores(prev => ({
-                                  ...prev,
-                                  [partido.id]: { ...prev[partido.id], local: val }
-                                }));
-                              }
-                            }}
-                            placeholder="0"
-                            className="w-10 bg-brand-blue-950 text-white rounded text-center py-0.5 text-xs font-bold border border-brand-blue-800"
-                          />
-                          <span className="text-white text-xs font-bold">-</span>
-                          <input
-                            type="text"
-                            value={score.visitante}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === '' || (/^\d+$/.test(val) && parseInt(val) <= 20)) {
-                                setRealScores(prev => ({
-                                  ...prev,
-                                  [partido.id]: { ...prev[partido.id], visitante: val }
-                                }));
-                              }
-                            }}
-                            placeholder="0"
-                            className="w-10 bg-brand-blue-950 text-white rounded text-center py-0.5 text-xs font-bold border border-brand-blue-800"
-                          />
-                          <button
-                            onClick={() => handleSaveRealScore(partido.id)}
-                            disabled={savingScoreId === partido.id}
-                            className="p-1.5 rounded bg-gold-500 text-black hover:brightness-110 active:scale-95 transition-all"
-                            title="Guardar marcador real"
-                          >
-                            <Save size={12} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2 border-y border-brand-blue-900/40">
-                        {/* Equipo 1 */}
-                        <div className="flex items-center flex-1 justify-end font-bold text-white">
-                          <span className="mr-2 hidden sm:inline">{partido.equipo1}</span>
+                    <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col md:flex-row justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+                      
+                      {/* Equipos */}
+                      <div className="flex items-center justify-center gap-4 flex-1 w-full md:w-auto">
+                        <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
+                          <span className="truncate max-w-[120px]">{partido.equipo1}</span>
                           {renderFlag(partido.equipo1)}
                         </div>
-                        
-                        {/* VS */}
-                        <div className="px-4 font-bold text-gold-500 text-xs">VS</div>
-
-                        {/* Equipo 2 */}
-                        <div className="flex items-center flex-1 justify-start font-bold text-white">
+                        <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400">VS</div>
+                        <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
                           {renderFlag(partido.equipo2)}
-                          <span className="ml-2 hidden sm:inline">{partido.equipo2}</span>
+                          <span className="truncate max-w-[120px]">{partido.equipo2}</span>
                         </div>
                       </div>
 
-                      {/* Lista de Pronósticos para este partido */}
-                      <div className="text-xs space-y-2">
-                        <p className="font-bold text-brand-blue-600 uppercase tracking-wider">
-                          Pronósticos de los participantes ({partidoPronosticos.length}):
-                        </p>
-                        {partidoPronosticos.length === 0 ? (
-                          <p className="text-gray-500 italic">Nadie ha apostado aún en este encuentro.</p>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-2">
-                            {partidoPronosticos.map((p) => {
-                              const esGanador = tieneMarcadorReal && p.golesLocal === partido.golesRealLocal && p.golesVisitante === partido.golesRealVisitante;
-                              return (
-                                <div 
-                                  key={p.id} 
-                                  className={`flex justify-between items-center p-2 rounded-lg border ${
-                                    esGanador 
-                                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-extrabold" 
-                                      : "bg-brand-blue-950/40 border-brand-blue-900/60 text-gray-300"
-                                  }`}
-                                >
-                                  <span>{p.nombre || p.usuario}</span>
-                                  <span className="bg-brand-blue-900 px-2 py-0.5 rounded font-bold">
-                                    {p.golesLocal} - {p.golesVisitante} {esGanador && "👑 GANADOR"}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        
-                        {/* Mostrar lista de ganadores consolidados */}
-                        {tieneMarcadorReal && (
-                          <div className="pt-2 border-t border-brand-blue-900 text-xs">
-                            <span className="font-bold text-gold-500">Ganadores de este partido: </span>
-                            {ganadores.length === 0 ? (
-                              <span className="text-gray-400">Nadie acertó el marcador exacto ({partido.golesRealLocal} - {partido.golesRealVisitante}).</span>
-                            ) : (
-                              <span className="text-emerald-400 font-bold">
-                                {ganadores.map(g => g.nombre || g.usuario).join(', ')} (Premio dividido entre {ganadores.length})
-                              </span>
-                            )}
-                          </div>
+                      {/* Marcador Real */}
+                      <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 w-full md:w-auto justify-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={score.local}
+                          onChange={(e) => setRealScores({
+                            ...realScores,
+                            [partido.id]: { ...score, local: e.target.value }
+                          })}
+                          placeholder="-"
+                          className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+                        />
+                        <span className="text-gray-600 font-bold">:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={score.visitante}
+                          onChange={(e) => setRealScores({
+                            ...realScores,
+                            [partido.id]: { ...score, visitante: e.target.value }
+                          })}
+                          placeholder="-"
+                          className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+                        />
+                        <button
+                          onClick={() => handleSaveRealScore(partido.id)}
+                          disabled={isSaving}
+                          className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                          title="Guardar marcador oficial"
+                        >
+                          {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                        </button>
+                      </div>
+
+                      {/* Info adicional */}
+                      <div className="text-center md:text-right shrink-0">
+                        <div className="text-xs font-bold text-gray-400 flex items-center justify-center md:justify-end gap-1">
+                          <Clock size={12} className="text-gold-500" />
+                          <span>{partido.fecha} | {partido.hora}</span>
+                        </div>
+                        {partido.golesRealLocal !== null && (
+                          <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider">Resultado Registrado</div>
                         )}
                       </div>
+
                     </div>
                   );
                 })}
@@ -575,97 +641,60 @@ export default function AdminView({ activeSection, onSectionChange }) {
         <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-bold gold-gradient-text">Tabla General de Apuestas por Partido</h3>
-              <p className="text-xs text-gray-400 mt-1">Selecciona un partido para ver las apuestas de todos los jugadores.</p>
+              <h3 className="text-lg font-bold gold-gradient-text">Monitoreo de Pronósticos</h3>
+              <p className="text-xs text-gray-400">Visualiza todas las apuestas de los jugadores registrados en el sistema.</p>
             </div>
             <button 
-              onClick={() => { loadPronosticos(); loadPartidos(); }} 
+              onClick={loadPronosticos}
               className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
             >
               <RefreshCw size={14} />
             </button>
           </div>
 
+          {pronosticosError && (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold flex items-center gap-2">
+              <AlertCircle size={16} />
+              <span>{pronosticosError}</span>
+            </div>
+          )}
+
           {loadingPronosticos ? (
             <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
               <RefreshCw size={16} className="animate-spin text-gold-500" />
-              <span>Cargando apuestas...</span>
+              <span>Cargando pronósticos...</span>
             </div>
-          ) : partidos.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">No hay partidos creados aún.</div>
+          ) : pronosticos.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">No hay pronósticos registrados todavía.</div>
           ) : (
-            <div className="space-y-8">
-              {partidos.map((partido) => {
-                const partidoPronosticos = pronosticos.filter(p => p.partidoId === partido.id);
-                const tieneMarcadorReal = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
-
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pronosticos.map((p, idx) => {
+                const matchedPartido = partidos.find(partido => partido.id === p.partidoId);
                 return (
-                  <div key={partido.id} className="border border-brand-blue-800 rounded-xl p-4 bg-brand-blue-900/10 space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-brand-blue-800/60 pb-3">
-                      <div className="flex items-center gap-2 text-white font-bold">
-                        {renderFlag(partido.equipo1)}
-                        <span>{partido.equipo1}</span>
-                        <span className="text-gold-500 text-xs">VS</span>
-                        {renderFlag(partido.equipo2)}
-                        <span>{partido.equipo2}</span>
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        <span>{partido.fecha}</span> • <span>{partido.hora}</span>
-                        {tieneMarcadorReal && (
-                          <span className="ml-2 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
-                            Marcador Real: {partido.golesRealLocal} - {partido.golesRealVisitante}
-                          </span>
-                        )}
-                      </div>
+                  <div key={idx} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col justify-between gap-3 hover:border-gold-500/20 transition-all">
+                    <div className="flex justify-between items-center border-b border-brand-blue-800/50 pb-2">
+                      <span className="text-xs font-black text-gold-500 uppercase tracking-widest">{p.nombreJugador}</span>
+                      <span className="text-[10px] text-gray-500 font-bold">CC @{p.userCedula}</span>
                     </div>
 
-                    {partidoPronosticos.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic py-2">Ningún participante ha registrado pronóstico para este encuentro.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-brand-blue-800/40 text-brand-blue-600 font-bold uppercase tracking-wider">
-                              <th className="py-2 px-3">Cédula</th>
-                              <th className="py-2 px-3">Nombre</th>
-                              <th className="py-2 px-3 text-center">Pronóstico</th>
-                              <th className="py-2 px-3 text-right">Resultado</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {partidoPronosticos.map((p) => {
-                              const esGanador = tieneMarcadorReal && p.golesLocal === partido.golesRealLocal && p.golesVisitante === partido.golesRealVisitante;
-                              return (
-                                <tr key={p.id} className="border-b border-brand-blue-800/20 hover:bg-brand-blue-800/10">
-                                  <td className="py-2 px-3 text-gray-400">@{p.usuario}</td>
-                                  <td className="py-2 px-3 text-white font-semibold">{p.nombre || 'Participante'}</td>
-                                  <td className="py-2 px-3 text-center">
-                                    <span className={`px-2 py-0.5 rounded font-extrabold border ${
-                                      esGanador 
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                                        : 'bg-gold-500/5 text-gold-500 border-gold-500/15'
-                                    }`}>
-                                      {p.golesLocal} - {p.golesVisitante}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-3 text-right">
-                                    {tieneMarcadorReal ? (
-                                      esGanador ? (
-                                        <span className="text-emerald-400 font-bold">🏆 Ganador</span>
-                                      ) : (
-                                        <span className="text-gray-500">No acertó</span>
-                                      )
-                                    ) : (
-                                      <span className="text-gray-400">Pendiente</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                    {matchedPartido ? (
+                      <div className="flex items-center justify-between text-sm py-1">
+                        <span className="font-semibold text-white flex items-center gap-1">
+                          {renderFlag(matchedPartido.equipo1)} {matchedPartido.equipo1}
+                        </span>
+                        <span className="text-xs font-black px-1.5 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
+                        <span className="font-semibold text-white flex items-center gap-1">
+                          {matchedPartido.equipo2} {renderFlag(matchedPartido.equipo2)}
+                        </span>
                       </div>
+                    ) : (
+                      <div className="text-xs text-gray-500">Partido ID: {p.partidoId}</div>
                     )}
+
+                    <div className="flex justify-between items-center pt-2 border-t border-brand-blue-800/50">
+                      <span className="text-xs text-gray-400">Pronóstico:</span>
+                      <span className="text-lg font-black text-emerald-400 tracking-widest">{p.marcadorCombinado}</span>
+                    </div>
                   </div>
                 );
               })}
@@ -717,13 +746,22 @@ export default function AdminView({ activeSection, onSectionChange }) {
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Contraseña Inicial</label>
-                <input
-                  type="text"
-                  value={newUserPassword}
-                  onChange={(e) => setNewUserPassword(e.target.value)}
-                  placeholder="Contraseña"
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="Contraseña inicial"
+                    className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gold-500 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Rol</label>
@@ -783,19 +821,26 @@ export default function AdminView({ activeSection, onSectionChange }) {
                         <td className="py-3 px-4 text-white font-bold">{u.nombre}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                            u.role === 'admin' || u.rol === 'admin'
+                            u.rol === 'admin'
                               ? 'bg-gold-500/10 text-gold-500 border-gold-500/20'
                               : 'bg-brand-blue-800/40 text-brand-blue-500 border-brand-blue-800/60'
                           }`}>
-                            {u.rol}
+                            {u.rol === 'admin' ? 'Administrador' : 'Jugador'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-3 px-4 text-right flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setEditingUser(u)}
+                            className="p-2 rounded-lg border bg-gold-500/10 border-gold-500/20 text-gold-500 hover:bg-gold-500/30 transition-all"
+                            title="Editar usuario"
+                          >
+                            <Pencil size={14} />
+                          </button>
                           <button
                             onClick={() => handleDeleteUser(u.username)}
-                            disabled={u.username === '1000000000'}
+                            disabled={u.username === '1234' || u.username === '1000000000'}
                             className={`p-2 rounded-lg border transition-all ${
-                              u.username === '1000000000'
+                              u.username === '1234' || u.username === '1000000000'
                                 ? 'opacity-40 cursor-not-allowed bg-gray-800 text-gray-500 border-transparent'
                                 : 'bg-rose-500/15 border-rose-500/20 text-rose-300 hover:bg-rose-500/30'
                             }`}
@@ -812,6 +857,15 @@ export default function AdminView({ activeSection, onSectionChange }) {
             )}
           </div>
         </div>
+      )}
+
+      {/* Modal de Edición de Usuario */}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSave={handleSaveEditUser}
+        />
       )}
     </div>
   );

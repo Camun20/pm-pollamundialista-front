@@ -36,23 +36,6 @@ export default function LoginView() {
     }
   };
 
-  // Helper para pruebas rápidas
-  const handleQuickLogin = async (role) => {
-    setError(null);
-    setLoading(true);
-    try {
-      if (role === 'admin') {
-        await login('1234', '1234');
-      } else {
-        await login('123456789', '123');
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="max-w-md w-full mx-auto mt-16 px-4 animate-fade-in">
       <div className="glass-card rounded-3xl p-8 border border-gold-500/20 text-center relative overflow-hidden">
@@ -117,27 +100,6 @@ export default function LoginView() {
             {loading ? "Iniciando Sesión..." : "Iniciar Sesión"}
           </button>
         </form>
-
-        {/* Botones de Acceso Rápido para Demostración */}
-        <div className="mt-8 pt-6 border-t border-brand-blue-800/80">
-          <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">
-            Acceso rápido:
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => handleQuickLogin('admin')}
-              className="flex-1 py-2 px-3 rounded-lg text-xs font-bold bg-brand-blue-800/60 text-gold-500 border border-gold-500/20 hover:bg-brand-blue-700/80 active:scale-95 transition-all"
-            >
-              Admin Demo
-            </button>
-            <button
-              onClick={() => handleQuickLogin('user')}
-              className="flex-1 py-2 px-3 rounded-lg text-xs font-bold bg-brand-blue-800/60 text-emerald-400 border border-emerald-500/20 hover:bg-brand-blue-700/80 active:scale-95 transition-all"
-            >
-              Jugador Demo
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
