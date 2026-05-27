@@ -1,52 +1,22 @@
-// Mapeo de nombres de países en español a sus códigos ISO correspondientes
-const COUNTRY_CODES = {
-  "argentina": "AR",
-  "brasil": "BR",
-  "colombia": "CO",
-  "alemania": "DE",
-  "francia": "FR",
-  "españa": "ES",
-  "espana": "ES",
-  "mexico": "MX",
-  "méxico": "MX",
-  "canadá": "CA",
-  "canada": "CA",
-  "estados unidos": "US",
-  "eeuu": "US",
-  "usa": "US",
-  "italia": "IT",
-  "inglaterra": "GB",
-  "portugals": "PT",
-  "portugal": "PT",
-  "uruguay": "UY",
-  "ecuador": "EC",
-  "países bajos": "NL",
-  "paises bajos": "NL",
-  "holanda": "NL",
-  "croacia": "HR",
-  "marruecos": "MA",
-  "bélgica": "BE",
-  "belgica": "BE",
-  "japón": "JP",
-  "japon": "JP",
-  "senegal": "SN",
-  "suiza": "CH",
-  "dinamarca": "DK"
-};
+import { FIFA_2026_TEAMS, getFlagUrl } from './fifa2026Teams';
 
 /**
- * Retorna la URL de la bandera del país. Si no se reconoce, retorna un placeholder de fútbol.
+ * Retorna la URL de la bandera del país de la lista de los 48 países del Mundial 2026.
  * @param {string} countryName Nombre del país
- * @returns {string} URL de la bandera
+ * @returns {string|null} URL de la bandera o null si no se encuentra
  */
 export function getCountryFlagUrl(countryName) {
-  if (!countryName) return "⚽";
+  if (!countryName) return null;
   
-  const normalized = countryName.trim().toLowerCase();
-  const code = COUNTRY_CODES[normalized];
+  const normalizeText = (text) => 
+    text.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const normalizedInput = normalizeText(countryName);
   
-  if (code) {
-    return `https://flagsapi.com/${code}/flat/64.png`;
+  const team = FIFA_2026_TEAMS.find(t => normalizeText(t.name) === normalizedInput);
+  
+  if (team) {
+    return getFlagUrl(team.code);
   }
   
   return null;

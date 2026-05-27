@@ -10,25 +10,29 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem('pm_user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('pm_user');
+      }
     }
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
-    try {
-      const userData = await apiRequest('/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password })
-      });
-      
-      setUser(userData);
-      localStorage.setItem('pm_user', JSON.stringify(userData));
-      return userData;
-    } catch (error) {
-      console.error('Error al iniciar sesión:', error);
-      throw error;
-    }
+  /**
+   * Inicio de sesión con cédula (número) y contraseña.
+   * @param {string} cedula - Número de cédula del usuario
+   * @param {string} password - Contraseña
+   */
+  const login = async (cedula, password) => {
+    const userData = await apiRequest('/login', {
+      method: 'POST',
+      body: JSON.stringify({ cedula, password })
+    });
+    
+    setUser(userData);
+    localStorage.setItem('pm_user', JSON.stringify(userData));
+    return userData;
   };
 
   const logout = () => {

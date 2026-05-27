@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 import LoginView from './views/LoginView';
 import AdminView from './views/AdminView';
 import UserView from './views/UserView';
 
 function MainAppContent() {
   const { user, loading } = useAuth();
+  const [activeSection, setActiveSection] = useState('partidos');
+
+  // Resetear la sección al cambiar de usuario o iniciar sesión
+  useEffect(() => {
+    if (user) {
+      setActiveSection(user.rol === 'admin' ? 'partidos' : 'partidos');
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -20,16 +29,20 @@ function MainAppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-gray-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#0b0f19] text-gray-100 flex flex-col font-sans relative">
+      {user && (
+        <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      )}
+      
       <Header />
       
-      <main className="flex-grow py-8">
+      <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8">
         {!user ? (
           <LoginView />
         ) : user.rol === 'admin' ? (
-          <AdminView />
+          <AdminView activeSection={activeSection} onSectionChange={setActiveSection} />
         ) : (
-          <UserView />
+          <UserView activeSection={activeSection} />
         )}
       </main>
 

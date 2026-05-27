@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../services/api';
 import { getCountryFlagUrl } from '../utils/flags';
+import CountrySelector from '../components/CountrySelector';
+import { 
+  Calendar, 
+  BarChart3, 
+  Users, 
+  RefreshCw, 
+  Save, 
+  Trash2, 
+  Plus, 
+  UserPlus, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle
+} from 'lucide-react';
 
-export default function AdminView() {
-  const [activeTab, setActiveTab] = useState('partidos'); // 'partidos', 'pronosticos', 'usuarios'
+export default function AdminView({ activeSection, onSectionChange }) {
+  const activeTab = activeSection || 'partidos';
+  const setActiveTab = onSectionChange || (() => {});
   
   // --- ESTADOS DE PARTIDOS ---
   const [partidos, setPartidos] = useState([]);
@@ -27,7 +42,7 @@ export default function AdminView() {
 
   // --- ESTADOS DE USUARIOS ---
   const [usuarios, setUsuarios] = useState([]);
-  const [newUserUsername, setNewUserUsername] = useState('');
+  const [newUserCedula, setNewUserCedula] = useState('');
   const [newUserNombre, setNewUserNombre] = useState('');
   const [newUserRol, setNewUserRol] = useState('user');
   const [newUserPassword, setNewUserPassword] = useState('123');
@@ -91,6 +106,7 @@ export default function AdminView() {
   useEffect(() => {
     if (activeTab === 'pronosticos') {
       loadPronosticos();
+      loadPartidos();
     } else if (activeTab === 'usuarios') {
       loadUsuarios();
     } else if (activeTab === 'partidos') {
@@ -102,8 +118,12 @@ export default function AdminView() {
   // Crear Partido
   const handleCreateMatch = async (e) => {
     e.preventDefault();
-    if (!equipo1.trim() || !equipo2.trim() || !fecha || !hora) {
-      setCreateError('Todos los campos son requeridos');
+    if (!equipo1 || !equipo2 || !fecha || !hora) {
+      setCreateError('Todos los campos son requeridos, incluyendo los equipos.');
+      return;
+    }
+    if (equipo1 === equipo2) {
+      setCreateError('El equipo local y el visitante no pueden ser el mismo.');
       return;
     }
 
@@ -115,8 +135,8 @@ export default function AdminView() {
       await apiRequest('/partidos', {
         method: 'POST',
         body: JSON.stringify({
-          equipo1: equipo1.trim(),
-          equipo2: equipo2.trim(),
+          equipo1: equipo1,
+          equipo2: equipo2,
           fecha,
           hora
         })
@@ -166,8 +186,8 @@ export default function AdminView() {
   // Crear Usuario
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    if (!newUserUsername.trim() || !newUserNombre.trim()) {
-      setUsuariosError('Nombre y usuario son obligatorios');
+    if (!newUserCedula.trim() || !newUserNombre.trim()) {
+      setUsuariosError('La cédula y el nombre son obligatorios');
       return;
     }
 
@@ -179,7 +199,7 @@ export default function AdminView() {
       await apiRequest('/usuarios', {
         method: 'POST',
         body: JSON.stringify({
-          username: newUserUsername.trim(),
+          username: newUserCedula.trim(),
           nombre: newUserNombre.trim(),
           rol: newUserRol,
           contrasena: newUserPassword
@@ -187,7 +207,7 @@ export default function AdminView() {
       });
 
       setUsuariosSuccess(true);
-      setNewUserUsername('');
+      setNewUserCedula('');
       setNewUserNombre('');
       setNewUserPassword('123');
       setNewUserRol('user');
@@ -202,7 +222,7 @@ export default function AdminView() {
 
   // Eliminar Usuario
   const handleDeleteUser = async (username) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar al usuario @${username}?`)) return;
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar al usuario con cédula ${username}?`)) return;
 
     setLoadingUsuarios(true);
     try {
@@ -217,20 +237,27 @@ export default function AdminView() {
     }
   };
 
-  // Renderizar bandera o elemento visual del país
+  const handleCedulaInputChange = (e) => {
+    const val = e.target.value;
+    if (val === '' || /^\d+$/.test(val)) {
+      setNewUserCedula(val);
+    }
+  };
+
+  // Renderizar bandera del país
   const renderFlag = (teamName) => {
     const flagUrl = getCountryFlagUrl(teamName);
     if (flagUrl) {
-      return <img src={flagUrl} alt={teamName} className="h-6 w-9 object-cover rounded shadow-sm inline-block mr-2" />;
+      return <img src={flagUrl} alt={teamName} className="h-5 w-7 object-cover rounded shadow-sm inline-block mr-2" />;
     }
-    return <span className="inline-block mr-2 text-sm">⚽</span>;
+    return null;
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 mt-8 animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white">Panel de Control General ⚙️</h2>
+          <h2 className="text-2xl font-bold text-white tracking-wide">Panel de Control General</h2>
           <p className="text-sm text-gray-400">Gestiona partidos, resultados, pronósticos y usuarios del sistema.</p>
         </div>
       </div>
@@ -245,7 +272,8 @@ export default function AdminView() {
               : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
           }`}
         >
-          <span>🏆</span> Partidos y Resultados
+          <Calendar size={16} />
+          <span>Partidos y Resultados</span>
         </button>
         <button
           onClick={() => setActiveTab('pronosticos')}
@@ -255,7 +283,8 @@ export default function AdminView() {
               : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
           }`}
         >
-          <span>📊</span> Pronósticos Totales
+          <BarChart3 size={16} />
+          <span>Pronósticos por Partido</span>
         </button>
         <button
           onClick={() => setActiveTab('usuarios')}
@@ -265,7 +294,8 @@ export default function AdminView() {
               : 'border-transparent text-gray-400 hover:text-white hover:bg-brand-blue-900/40'
           }`}
         >
-          <span>👤</span> Gestionar Usuarios
+          <Users size={16} />
+          <span>Gestionar Usuarios</span>
         </button>
       </div>
 
@@ -279,37 +309,33 @@ export default function AdminView() {
             <h3 className="text-lg font-bold gold-gradient-text mb-4">Crear Partido</h3>
             
             {createSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                ¡Partido programado exitosamente!
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle size={14} />
+                <span>¡Partido programado exitosamente!</span>
               </div>
             )}
             {createError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold">
-                {createError}
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={14} />
+                <span>{createError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreateMatch} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Local (Equipo 1)</label>
-                <input
-                  type="text"
-                  value={equipo1}
-                  onChange={(e) => setEquipo1(e.target.value)}
-                  placeholder="ej. Colombia"
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Visitante (Equipo 2)</label>
-                <input
-                  type="text"
-                  value={equipo2}
-                  onChange={(e) => setEquipo2(e.target.value)}
-                  placeholder="ej. Brasil"
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
+              <CountrySelector 
+                label="Local (Equipo 1)"
+                value={equipo1}
+                onChange={setEquipo1}
+                placeholder="Selecciona equipo local"
+              />
+
+              <CountrySelector 
+                label="Visitante (Equipo 2)"
+                value={equipo2}
+                onChange={setEquipo2}
+                placeholder="Selecciona equipo visitante"
+              />
+
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Fecha</label>
                 <input
@@ -320,7 +346,7 @@ export default function AdminView() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Hora</label>
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Hora (Colombia)</label>
                 <input
                   type="time"
                   value={hora}
@@ -330,9 +356,10 @@ export default function AdminView() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 transition-all text-sm"
+                className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10"
               >
-                Crear Encuentro ⚽
+                <Plus size={16} />
+                <span>Crear Encuentro</span>
               </button>
             </form>
           </div>
@@ -341,13 +368,19 @@ export default function AdminView() {
           <div className="glass-card rounded-2xl p-6 border border-gold-500/10 lg:col-span-2 space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold gold-gradient-text">Partidos Programados</h3>
-              <button onClick={loadPartidos} className="text-xs text-gray-400 hover:text-white transition-colors">
-                🔄 Recargar
+              <button 
+                onClick={loadPartidos} 
+                className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+              >
+                <RefreshCw size={14} />
               </button>
             </div>
 
             {loadingPartidos ? (
-              <div className="py-12 text-center text-gray-500">Cargando encuentros...</div>
+              <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+                <RefreshCw size={16} className="animate-spin text-gold-500" />
+                <span>Cargando encuentros...</span>
+              </div>
             ) : partidos.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No se han registrado partidos.</div>
             ) : (
@@ -368,13 +401,14 @@ export default function AdminView() {
                       className="border border-brand-blue-800 rounded-xl p-4 bg-brand-blue-900/10 hover:bg-brand-blue-950/20 transition-all space-y-4"
                     >
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                        <div className="text-xs text-gray-400">
-                          <span>📅 {partido.fecha}</span> • <span>⏰ {partido.hora}</span>
+                        <div className="text-xs text-gray-400 flex items-center gap-1.5">
+                          <Clock size={12} className="text-brand-blue-600" />
+                          <span>{partido.fecha}</span> • <span>{partido.hora}</span>
                         </div>
                         
                         {/* Marcador Real */}
                         <div className="flex items-center gap-2 bg-brand-blue-900/60 p-2 rounded-lg border border-gold-500/10">
-                          <span className="text-xs font-bold text-brand-blue-600 uppercase">Resultado Real:</span>
+                          <span className="text-[10px] font-bold text-brand-blue-600 uppercase tracking-wider">Marcador Real:</span>
                           <input
                             type="text"
                             value={score.local}
@@ -387,7 +421,7 @@ export default function AdminView() {
                                 }));
                               }
                             }}
-                            placeholder="Local"
+                            placeholder="0"
                             className="w-10 bg-brand-blue-950 text-white rounded text-center py-0.5 text-xs font-bold border border-brand-blue-800"
                           />
                           <span className="text-white text-xs font-bold">-</span>
@@ -403,15 +437,16 @@ export default function AdminView() {
                                 }));
                               }
                             }}
-                            placeholder="Visita"
+                            placeholder="0"
                             className="w-10 bg-brand-blue-950 text-white rounded text-center py-0.5 text-xs font-bold border border-brand-blue-800"
                           />
                           <button
                             onClick={() => handleSaveRealScore(partido.id)}
                             disabled={savingScoreId === partido.id}
-                            className="px-2 py-1 rounded bg-gold-500 text-black font-extrabold text-[10px] uppercase hover:brightness-110 active:scale-95 transition-all"
+                            className="p-1.5 rounded bg-gold-500 text-black hover:brightness-110 active:scale-95 transition-all"
+                            title="Guardar marcador real"
                           >
-                            {savingScoreId === partido.id ? "..." : "Guardar"}
+                            <Save size={12} />
                           </button>
                         </div>
                       </div>
@@ -453,7 +488,7 @@ export default function AdminView() {
                                       : "bg-brand-blue-950/40 border-brand-blue-900/60 text-gray-300"
                                   }`}
                                 >
-                                  <span>👤 {p.usuario}</span>
+                                  <span>{p.nombre || p.usuario}</span>
                                   <span className="bg-brand-blue-900 px-2 py-0.5 rounded font-bold">
                                     {p.golesLocal} - {p.golesVisitante} {esGanador && "👑 GANADOR"}
                                   </span>
@@ -471,7 +506,7 @@ export default function AdminView() {
                               <span className="text-gray-400">Nadie acertó el marcador exacto ({partido.golesRealLocal} - {partido.golesRealVisitante}).</span>
                             ) : (
                               <span className="text-emerald-400 font-bold">
-                                {ganadores.map(g => `@${g.usuario}`).join(', ')} (Premio dividido entre {ganadores.length})
+                                {ganadores.map(g => g.nombre || g.usuario).join(', ')} (Premio dividido entre {ganadores.length})
                               </span>
                             )}
                           </div>
@@ -486,48 +521,105 @@ export default function AdminView() {
         </div>
       )}
 
-      {/* 2. PESTAÑA: PRONÓSTICOS GENERALES */}
+      {/* 2. PESTAÑA: PRONÓSTICOS POR PARTIDO */}
       {activeTab === 'pronosticos' && (
-        <div className="glass-card rounded-2xl p-6 border border-gold-500/10">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold gold-gradient-text">Tabla General de Apuestas</h3>
-            <button onClick={loadPronosticos} className="text-xs text-gray-400 hover:text-white">
-              🔄 Actualizar
+        <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-bold gold-gradient-text">Tabla General de Apuestas por Partido</h3>
+              <p className="text-xs text-gray-400 mt-1">Selecciona un partido para ver las apuestas de todos los jugadores.</p>
+            </div>
+            <button 
+              onClick={() => { loadPronosticos(); loadPartidos(); }} 
+              className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+            >
+              <RefreshCw size={14} />
             </button>
           </div>
 
           {loadingPronosticos ? (
-            <div className="py-12 text-center text-gray-500">Cargando pronósticos...</div>
-          ) : pronosticosError ? (
-            <div className="p-4 rounded-xl bg-rose-500/10 border text-rose-300">{pronosticosError}</div>
-          ) : pronosticos.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">Aún no hay apuestas registradas.</div>
+            <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+              <RefreshCw size={16} className="animate-spin text-gold-500" />
+              <span>Cargando apuestas...</span>
+            </div>
+          ) : partidos.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">No hay partidos creados aún.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">Usuario</th>
-                    <th className="py-3 px-4">Partido</th>
-                    <th className="py-3 px-4 text-center">Marcador Exacto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pronosticos.map((p) => (
-                    <tr key={p.id} className="border-b border-brand-blue-800/40 hover:bg-brand-blue-800/10">
-                      <td className="py-3 px-4 text-white font-bold">👤 {p.usuario}</td>
-                      <td className="py-3 px-4 text-gray-300">
-                        {renderFlag(p.equipo1)} {p.equipo1} vs {p.equipo2} {renderFlag(p.equipo2)}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="bg-gold-500/10 text-gold-500 border border-gold-500/20 font-extrabold px-3 py-1 rounded-full text-xs">
-                          {p.golesLocal} - {p.golesVisitante}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-8">
+              {partidos.map((partido) => {
+                const partidoPronosticos = pronosticos.filter(p => p.partidoId === partido.id);
+                const tieneMarcadorReal = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
+
+                return (
+                  <div key={partido.id} className="border border-brand-blue-800 rounded-xl p-4 bg-brand-blue-900/10 space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-brand-blue-800/60 pb-3">
+                      <div className="flex items-center gap-2 text-white font-bold">
+                        {renderFlag(partido.equipo1)}
+                        <span>{partido.equipo1}</span>
+                        <span className="text-gold-500 text-xs">VS</span>
+                        {renderFlag(partido.equipo2)}
+                        <span>{partido.equipo2}</span>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        <span>{partido.fecha}</span> • <span>{partido.hora}</span>
+                        {tieneMarcadorReal && (
+                          <span className="ml-2 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
+                            Marcador Real: {partido.golesRealLocal} - {partido.golesRealVisitante}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {partidoPronosticos.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic py-2">Ningún participante ha registrado pronóstico para este encuentro.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-brand-blue-800/40 text-brand-blue-600 font-bold uppercase tracking-wider">
+                              <th className="py-2 px-3">Cédula</th>
+                              <th className="py-2 px-3">Nombre</th>
+                              <th className="py-2 px-3 text-center">Pronóstico</th>
+                              <th className="py-2 px-3 text-right">Resultado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {partidoPronosticos.map((p) => {
+                              const esGanador = tieneMarcadorReal && p.golesLocal === partido.golesRealLocal && p.golesVisitante === partido.golesRealVisitante;
+                              return (
+                                <tr key={p.id} className="border-b border-brand-blue-800/20 hover:bg-brand-blue-800/10">
+                                  <td className="py-2 px-3 text-gray-400">@{p.usuario}</td>
+                                  <td className="py-2 px-3 text-white font-semibold">{p.nombre || 'Participante'}</td>
+                                  <td className="py-2 px-3 text-center">
+                                    <span className={`px-2 py-0.5 rounded font-extrabold border ${
+                                      esGanador 
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                        : 'bg-gold-500/5 text-gold-500 border-gold-500/15'
+                                    }`}>
+                                      {p.golesLocal} - {p.golesVisitante}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 text-right">
+                                    {tieneMarcadorReal ? (
+                                      esGanador ? (
+                                        <span className="text-emerald-400 font-bold">🏆 Ganador</span>
+                                      ) : (
+                                        <span className="text-gray-500">No acertó</span>
+                                      )
+                                    ) : (
+                                      <span className="text-gray-400">Pendiente</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -541,17 +633,29 @@ export default function AdminView() {
             <h3 className="text-lg font-bold gold-gradient-text mb-4">Agregar Nuevo Usuario</h3>
             
             {usuariosSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-                ¡Usuario registrado correctamente!
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle size={14} />
+                <span>¡Usuario registrado correctamente!</span>
               </div>
             )}
             {usuariosError && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold">
-                {usuariosError}
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={14} />
+                <span>{usuariosError}</span>
               </div>
             )}
 
             <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Cédula (Solo Números)</label>
+                <input
+                  type="text"
+                  value={newUserCedula}
+                  onChange={handleCedulaInputChange}
+                  placeholder="ej. 123456789"
+                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Nombre Completo</label>
                 <input
@@ -559,16 +663,6 @@ export default function AdminView() {
                   value={newUserNombre}
                   onChange={(e) => setNewUserNombre(e.target.value)}
                   placeholder="ej. Juan Pérez"
-                  className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Usuario / Alias</label>
-                <input
-                  type="text"
-                  value={newUserUsername}
-                  onChange={(e) => setNewUserUsername(e.target.value)}
-                  placeholder="ej. juanp10"
                   className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
                 />
               </div>
@@ -595,19 +689,31 @@ export default function AdminView() {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 transition-all text-sm"
+                className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10"
               >
-                Crear Usuario 👤
+                <UserPlus size={16} />
+                <span>Crear Usuario</span>
               </button>
             </form>
           </div>
 
           {/* Listado de Usuarios */}
-          <div className="glass-card rounded-2xl p-6 border border-gold-500/10 lg:col-span-2">
-            <h3 className="text-lg font-bold gold-gradient-text mb-6">Usuarios del Sistema</h3>
+          <div className="glass-card rounded-2xl p-6 border border-gold-500/10 lg:col-span-2 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold gold-gradient-text">Usuarios del Sistema</h3>
+              <button 
+                onClick={loadUsuarios} 
+                className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
 
             {loadingUsuarios ? (
-              <div className="py-12 text-center text-gray-500">Cargando lista de usuarios...</div>
+              <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+                <RefreshCw size={16} className="animate-spin text-gold-500" />
+                <span>Cargando lista de usuarios...</span>
+              </div>
             ) : usuarios.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No hay usuarios registrados.</div>
             ) : (
@@ -615,8 +721,8 @@ export default function AdminView() {
                 <table className="w-full text-left text-sm border-collapse">
                   <thead>
                     <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">Cédula</th>
                       <th className="py-3 px-4">Nombre</th>
-                      <th className="py-3 px-4">Usuario</th>
                       <th className="py-3 px-4">Rol</th>
                       <th className="py-3 px-4 text-right">Acciones</th>
                     </tr>
@@ -624,8 +730,8 @@ export default function AdminView() {
                   <tbody>
                     {usuarios.map((u) => (
                       <tr key={u.username} className="border-b border-brand-blue-800/40 hover:bg-brand-blue-800/10">
+                        <td className="py-3 px-4 text-gray-400 font-semibold">@{u.username}</td>
                         <td className="py-3 px-4 text-white font-bold">{u.nombre}</td>
-                        <td className="py-3 px-4 text-gray-400">@{u.username}</td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
                             u.role === 'admin' || u.rol === 'admin'
@@ -638,14 +744,15 @@ export default function AdminView() {
                         <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => handleDeleteUser(u.username)}
-                            disabled={u.username === 'admin'}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                              u.username === 'admin'
+                            disabled={u.username === '1000000000'}
+                            className={`p-2 rounded-lg border transition-all ${
+                              u.username === '1000000000'
                                 ? 'opacity-40 cursor-not-allowed bg-gray-800 text-gray-500 border-transparent'
                                 : 'bg-rose-500/15 border-rose-500/20 text-rose-300 hover:bg-rose-500/30'
                             }`}
+                            title="Eliminar usuario"
                           >
-                            Eliminar
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
