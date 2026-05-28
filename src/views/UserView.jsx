@@ -56,7 +56,8 @@ export default function UserView({ activeSection }) {
         fase: p.fase || 'Fase de Grupos',
         grupo: p.grupo || null,
         golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-        golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+        golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
+        ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
       }));
       const rawPronosticos = Array.isArray(pronosticosCargados) ? pronosticosCargados : [];
 
@@ -69,7 +70,8 @@ export default function UserView({ activeSection }) {
           usuario: (pr.usuario || pr.userCedula || pr.user_id || '').toString().trim(),
           nombre: pr.nombre || pr.nombreJugador || 'Jugador',
           golesLocal: isNaN(gl) ? 0 : gl,
-          golesVisitante: isNaN(gv) ? 0 : gv
+          golesVisitante: isNaN(gv) ? 0 : gv,
+          ganadorPenaltis: pr.ganadorPenaltis || pr.ganador_penaltis || null
         };
       });
 
@@ -90,12 +92,14 @@ export default function UserView({ activeSection }) {
           if (pronosticoExistente) {
             inputsIniciales[partido.id] = {
               golesLocal: pronosticoExistente.golesLocal.toString(),
-              golesVisitante: pronosticoExistente.golesVisitante.toString()
+              golesVisitante: pronosticoExistente.golesVisitante.toString(),
+              ganadorPenaltis: pronosticoExistente.ganadorPenaltis || ''
             };
           } else {
             inputsIniciales[partido.id] = {
               golesLocal: prevInputs[partido.id]?.golesLocal || '',
-              golesVisitante: prevInputs[partido.id]?.golesVisitante || ''
+              golesVisitante: prevInputs[partido.id]?.golesVisitante || '',
+              ganadorPenaltis: prevInputs[partido.id]?.ganadorPenaltis || ''
             };
           }
         });
@@ -176,6 +180,21 @@ export default function UserView({ activeSection }) {
       return;
     }
 
+    const golesLocalInt = parseInt(seleccion.golesLocal);
+    const golesVisitanteInt = parseInt(seleccion.golesVisitante);
+    const isEmpate = golesLocalInt === golesVisitanteInt;
+    const isKnockout = partido.fase !== 'Fase de Grupos';
+
+    if (isKnockout && isEmpate && !seleccion.ganadorPenaltis) {
+      setApuestaError(prev => ({
+        ...prev,
+        [partidoId]: "Por favor selecciona qué equipo clasifica a la siguiente ronda."
+      }));
+      return;
+    }
+
+    const ganadorPenaltis = (isKnockout && isEmpate) ? seleccion.ganadorPenaltis : null;
+
     setApuestaLoading(prev => ({ ...prev, [partidoId]: true }));
     setApuestaError(prev => ({ ...prev, [partidoId]: null }));
     setApuestaSuccess(prev => ({ ...prev, [partidoId]: false }));
@@ -188,8 +207,9 @@ export default function UserView({ activeSection }) {
           usuario: user.username,
           nombre: user.nombre,
           partidoId,
-          golesLocal: parseInt(seleccion.golesLocal),
-          golesVisitante: parseInt(seleccion.golesVisitante),
+          golesLocal: golesLocalInt,
+          golesVisitante: golesVisitanteInt,
+          ganadorPenaltis,
           
           // Retrocompatibilidad total con Lambda antigua de AWS
           partido_id: partidoId,
@@ -197,7 +217,8 @@ export default function UserView({ activeSection }) {
           marcador_combinado: `${seleccion.golesLocal}-${seleccion.golesVisitante}`,
           userCedula: user.username,
           user_id: user.username,
-          nombreJugador: user.nombre
+          nombreJugador: user.nombre,
+          ganador_penaltis: ganadorPenaltis
         })
       });
 
@@ -261,25 +282,44 @@ export default function UserView({ activeSection }) {
           const realLocal = match.golesRealLocal;
           const realVisitante = match.golesRealVisitante;
           
-          if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-            totalPuntos += 5;
-            aciertosExactos += 1;
-          } else {
-            const isRealLocalWin = realLocal > realVisitante;
-            const isRealVisitanteWin = realLocal < realVisitante;
-            const isRealDraw = realLocal === realVisitante;
+          const isRealDraw = realLocal === realVisitante;
+          const isPronoDraw = pronoLocal === pronoVisitante;
+          const isKnockout = match.fase !== 'Fase de Grupos';
+
+          if (isRealDraw && isKnockout) {
+            // Empate real en eliminatoria directa
+            const realClasifica = match.ganadorPenaltis;
+            const pronoClasifica = prono.ganadorPenaltis;
             
-            const isPronoLocalWin = pronoLocal > pronoVisitante;
-            const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-            const isPronoDraw = pronoLocal === pronoVisitante;
-            
-            if (
-              (isRealLocalWin && isPronoLocalWin) ||
-              (isRealVisitanteWin && isPronoVisitanteWin) ||
-              (isRealDraw && isPronoDraw)
-            ) {
+            const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
+            const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+
+            if (acertoMarcadorExacto && acertoClasificado) {
+              totalPuntos += 5;
+              aciertosExactos += 1;
+            } else if (acertoClasificado) {
               totalPuntos += 3;
               aciertosGanador += 1;
+            }
+          } else {
+            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+              totalPuntos += 5;
+              aciertosExactos += 1;
+            } else {
+              const isRealLocalWin = realLocal > realVisitante;
+              const isRealVisitanteWin = realLocal < realVisitante;
+              
+              const isPronoLocalWin = pronoLocal > pronoVisitante;
+              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+              
+              if (
+                (isRealLocalWin && isPronoLocalWin) ||
+                (isRealVisitanteWin && isPronoVisitanteWin) ||
+                (isRealDraw && isPronoDraw)
+              ) {
+                totalPuntos += 3;
+                aciertosGanador += 1;
+              }
             }
           }
         }
@@ -302,10 +342,16 @@ export default function UserView({ activeSection }) {
   const renderUserMatchCard = (partido) => {
     const inputs = pronosticoInputs[partido.id] || { golesLocal: '', golesVisitante: '' };
     const yaPronosticado = misPronosticos.some(p => p.partidoId === partido.id);
+    const pronosticoExistente = misPronosticos.find(p => p.partidoId === partido.id);
     const isLoading = apuestaLoading[partido.id];
     const matchError = apuestaError[partido.id];
     const matchSuccess = apuestaSuccess[partido.id];
     const windowStatus = getBettingWindowStatus(partido.fecha, partido.hora);
+
+    const glInt = inputs.golesLocal !== '' ? parseInt(inputs.golesLocal) : null;
+    const gvInt = inputs.golesVisitante !== '' ? parseInt(inputs.golesVisitante) : null;
+    const isEmpateDigitado = glInt !== null && gvInt !== null && glInt === gvInt;
+    const showPenaltisProno = partido.fase !== 'Fase de Grupos' && isEmpateDigitado;
 
     return (
       <div 
@@ -416,7 +462,7 @@ export default function UserView({ activeSection }) {
           <div className="w-full md:w-auto flex justify-center items-center">
             <button
               onClick={() => handleEnviarPronostico(partido.id, partido)}
-              disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+              disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado || (showPenaltisProno && !inputs.ganadorPenaltis)}
               className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 ${
                 yaPronosticado 
                   ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20 cursor-default" 
@@ -427,6 +473,51 @@ export default function UserView({ activeSection }) {
             </button>
           </div>
         </div>
+
+        {/* Selector de Penaltis / Clasificado interactivo */}
+        {showPenaltisProno && !yaPronosticado && (
+          <div className="mt-4 p-3 rounded-2xl bg-brand-blue-950 border border-gold-500/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span className="text-gold-500 font-bold flex items-center gap-1">
+              🤔 Empate en eliminatoria. Selecciona quién clasifica:
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPronosticoInputs({
+                  ...pronosticoInputs,
+                  [partido.id]: { ...inputs, ganadorPenaltis: partido.equipo1 }
+                })}
+                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all ${
+                  inputs.ganadorPenaltis === partido.equipo1
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                    : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                {partido.equipo1}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPronosticoInputs({
+                  ...pronosticoInputs,
+                  [partido.id]: { ...inputs, ganadorPenaltis: partido.equipo2 }
+                })}
+                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all ${
+                  inputs.ganadorPenaltis === partido.equipo2
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                    : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                {partido.equipo2}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {yaPronosticado && pronosticoExistente && pronosticoExistente.golesLocal === pronosticoExistente.golesVisitante && partido.fase !== 'Fase de Grupos' && (
+          <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold">
+            Pronosticaste que clasifica: <span className="underline font-bold text-white ml-1">{pronosticoExistente.ganadorPenaltis}</span>
+          </div>
+        )}
 
         {/* Mensajes de feedback */}
         {matchSuccess && (
@@ -501,7 +592,6 @@ export default function UserView({ activeSection }) {
               {misPronosticos.map((pronostico) => {
                 const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
                 const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
-                
                 let exacto = false;
                 let ganador = false;
                 let puntos = 0;
@@ -511,28 +601,46 @@ export default function UserView({ activeSection }) {
                   const pronoVisitante = pronostico.golesVisitante;
                   const realLocal = partidoOriginal.golesRealLocal;
                   const realVisitante = partidoOriginal.golesRealVisitante;
-                  
-                  if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-                    exacto = true;
-                    puntos = 5;
-                  } else {
-                    const isRealLocalWin = realLocal > realVisitante;
-                    const isRealVisitanteWin = realLocal < realVisitante;
-                    const isRealDraw = realLocal === realVisitante;
-                    
-                    const isPronoLocalWin = pronoLocal > pronoVisitante;
-                    const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-                    const isPronoDraw = pronoLocal === pronoVisitante;
-                    
-                    if (
-                      (isRealLocalWin && isPronoLocalWin) ||
-                      (isRealVisitanteWin && isPronoVisitanteWin) ||
-                      (isRealDraw && isPronoDraw)
-                    ) {
+                  const isRealDraw = realLocal === realVisitante;
+                  const isPronoDraw = pronoLocal === pronoVisitante;
+                  const isKnockout = partidoOriginal.fase !== 'Fase de Grupos';
+
+                  if (isRealDraw && isKnockout) {
+                    const realClasifica = partidoOriginal.ganadorPenaltis;
+                    const pronoClasifica = pronostico.ganadorPenaltis;
+                    const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
+                    const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+
+                    if (acertoMarcadorExacto && acertoClasificado) {
+                      exacto = true;
+                      puntos = 5;
+                    } else if (acertoClasificado) {
                       ganador = true;
                       puntos = 3;
                     } else {
                       puntos = 0;
+                    }
+                  } else {
+                    if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+                      exacto = true;
+                      puntos = 5;
+                    } else {
+                      const isRealLocalWin = realLocal > realVisitante;
+                      const isRealVisitanteWin = realLocal < realVisitante;
+                      
+                      const isPronoLocalWin = pronoLocal > pronoVisitante;
+                      const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+                      
+                      if (
+                        (isRealLocalWin && isPronoLocalWin) ||
+                        (isRealVisitanteWin && isPronoVisitanteWin) ||
+                        (isRealDraw && isPronoDraw)
+                      ) {
+                        ganador = true;
+                        puntos = 3;
+                      } else {
+                        puntos = 0;
+                      }
                     }
                   }
                 }
@@ -582,11 +690,21 @@ export default function UserView({ activeSection }) {
                       {tieneMarcadorReal && (
                         <p className="text-xs text-gray-400 mt-1">
                           Resultado real: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
+                          {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
+                            <span className="ml-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">({partidoOriginal.ganadorPenaltis} clasifica)</span>
+                          )}
+                        </p>
+                      )}
+                      {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && pronostico.ganadorPenaltis && (
+                        <p className="text-[10px] text-gold-500 font-semibold mt-1">
+                          Pronosticaste que clasifica: <span className="text-white underline">{pronostico.ganadorPenaltis}</span>
                         </p>
                       )}
                     </div>
-                    <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
-                      {pronostico.golesLocal} - {pronostico.golesVisitante}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
+                        {pronostico.golesLocal} - {pronostico.golesVisitante}
+                      </div>
                     </div>
                   </div>
                 );

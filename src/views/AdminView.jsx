@@ -159,25 +159,44 @@ export default function AdminView({ activeSection, onSectionChange }) {
           const realLocal = match.golesRealLocal;
           const realVisitante = match.golesRealVisitante;
           
-          if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-            totalPuntos += 5;
-            aciertosExactos += 1;
-          } else {
-            const isRealLocalWin = realLocal > realVisitante;
-            const isRealVisitanteWin = realLocal < realVisitante;
-            const isRealDraw = realLocal === realVisitante;
+          const isRealDraw = realLocal === realVisitante;
+          const isPronoDraw = pronoLocal === pronoVisitante;
+          const isKnockout = match.fase !== 'Fase de Grupos';
+
+          if (isRealDraw && isKnockout) {
+            // Empate real en eliminatoria directa
+            const realClasifica = match.ganadorPenaltis;
+            const pronoClasifica = prono.ganadorPenaltis;
             
-            const isPronoLocalWin = pronoLocal > pronoVisitante;
-            const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-            const isPronoDraw = pronoLocal === pronoVisitante;
-            
-            if (
-              (isRealLocalWin && isPronoLocalWin) ||
-              (isRealVisitanteWin && isPronoVisitanteWin) ||
-              (isRealDraw && isPronoDraw)
-            ) {
+            const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
+            const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+
+            if (acertoMarcadorExacto && acertoClasificado) {
+              totalPuntos += 5;
+              aciertosExactos += 1;
+            } else if (acertoClasificado) {
               totalPuntos += 3;
               aciertosGanador += 1;
+            }
+          } else {
+            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+              totalPuntos += 5;
+              aciertosExactos += 1;
+            } else {
+              const isRealLocalWin = realLocal > realVisitante;
+              const isRealVisitanteWin = realLocal < realVisitante;
+              
+              const isPronoLocalWin = pronoLocal > pronoVisitante;
+              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+              
+              if (
+                (isRealLocalWin && isPronoLocalWin) ||
+                (isRealVisitanteWin && isPronoVisitanteWin) ||
+                (isRealDraw && isPronoDraw)
+              ) {
+                totalPuntos += 3;
+                aciertosGanador += 1;
+              }
             }
           }
         }
@@ -200,69 +219,116 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const renderAdminMatchRow = (partido) => {
     const score = realScores[partido.id] || { local: '', visitante: '' };
     const isSaving = savingScoreId === partido.id;
+    const isEmpate = score.local !== '' && score.visitante !== '' && parseInt(score.local) === parseInt(score.visitante);
+    const showPenaltisSelector = partido.fase !== 'Fase de Grupos' && isEmpate;
 
     return (
-      <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+      <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col gap-3 hover:border-gold-500/20 transition-all">
         
-        {/* Equipos */}
-        <div className="flex items-center gap-4 flex-1">
-          <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
-            <span className="truncate max-w-[120px]">{partido.equipo1}</span>
-            {renderFlag(partido.equipo1)}
+        <div className="flex justify-between items-center gap-4">
+          {/* Equipos */}
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
+              <span className="truncate max-w-[120px]">{partido.equipo1}</span>
+              {renderFlag(partido.equipo1)}
+            </div>
+            <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
+            <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
+              {renderFlag(partido.equipo2)}
+              <span className="truncate max-w-[120px]">{partido.equipo2}</span>
+            </div>
           </div>
-          <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
-          <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
-            {renderFlag(partido.equipo2)}
-            <span className="truncate max-w-[120px]">{partido.equipo2}</span>
+
+          {/* Marcador Real */}
+          <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 shrink-0 justify-center">
+            <input
+              type="number"
+              min="0"
+              value={score.local}
+              onChange={(e) => setRealScores({
+                ...realScores,
+                [partido.id]: { ...score, local: e.target.value }
+              })}
+              placeholder="-"
+              className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+            />
+            <span className="text-gray-600 font-bold">:</span>
+            <input
+              type="number"
+              min="0"
+              value={score.visitante}
+              onChange={(e) => setRealScores({
+                ...realScores,
+                [partido.id]: { ...score, visitante: e.target.value }
+              })}
+              placeholder="-"
+              className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+            />
+            <button
+              onClick={() => handleSaveRealScore(partido.id)}
+              disabled={isSaving || (showPenaltisSelector && !score.ganadorPenaltis)}
+              className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+              title="Guardar marcador oficial"
+            >
+              {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+            </button>
+          </div>
+
+          {/* Info adicional */}
+          <div className="text-right shrink-0">
+            <div className="text-xs font-bold text-gray-400 flex items-center justify-end gap-1">
+              <Clock size={12} className="text-gold-500" />
+              <span>{partido.fecha} | {partido.hora}</span>
+            </div>
+            {partido.golesRealLocal !== null && (
+              <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider text-right">Resultado Registrado</div>
+            )}
           </div>
         </div>
 
-        {/* Marcador Real */}
-        <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 shrink-0 justify-center">
-          <input
-            type="number"
-            min="0"
-            value={score.local}
-            onChange={(e) => setRealScores({
-              ...realScores,
-              [partido.id]: { ...score, local: e.target.value }
-            })}
-            placeholder="-"
-            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-          />
-          <span className="text-gray-600 font-bold">:</span>
-          <input
-            type="number"
-            min="0"
-            value={score.visitante}
-            onChange={(e) => setRealScores({
-              ...realScores,
-              [partido.id]: { ...score, visitante: e.target.value }
-            })}
-            placeholder="-"
-            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-          />
-          <button
-            onClick={() => handleSaveRealScore(partido.id)}
-            disabled={isSaving}
-            className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-            title="Guardar marcador oficial"
-          >
-            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-          </button>
-        </div>
-
-        {/* Info adicional */}
-        <div className="text-right shrink-0">
-          <div className="text-xs font-bold text-gray-400 flex items-center justify-end gap-1">
-            <Clock size={12} className="text-gold-500" />
-            <span>{partido.fecha} | {partido.hora}</span>
+        {/* Selector de Penaltis / Clasificado */}
+        {showPenaltisSelector && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2.5 rounded-lg bg-[#090d16] border border-gold-500/20 text-xs">
+            <span className="text-gold-500 font-black flex items-center gap-1">
+              ⚽ Empate en eliminación directa. Selecciona quién clasifica:
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRealScores({
+                  ...realScores,
+                  [partido.id]: { ...score, ganadorPenaltis: partido.equipo1 }
+                })}
+                className={`px-3 py-1.5 rounded-lg border font-bold transition-all ${
+                  score.ganadorPenaltis === partido.equipo1
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                    : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                Clasifica {partido.equipo1}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRealScores({
+                  ...realScores,
+                  [partido.id]: { ...score, ganadorPenaltis: partido.equipo2 }
+                })}
+                className={`px-3 py-1.5 rounded-lg border font-bold transition-all ${
+                  score.ganadorPenaltis === partido.equipo2
+                    ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                    : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
+                }`}
+              >
+                Clasifica {partido.equipo2}
+              </button>
+            </div>
           </div>
-          {partido.golesRealLocal !== null && (
-            <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider text-right">Resultado Registrado</div>
-          )}
-        </div>
-
+        )}
+        {partido.golesRealLocal !== null && partido.golesRealVisitante !== null && partido.golesRealLocal === partido.golesRealVisitante && partido.ganadorPenaltis && (
+          <div className="text-center text-[10px] text-emerald-400 bg-emerald-500/5 py-1 px-2.5 border border-emerald-500/10 rounded-lg font-bold">
+            Clasificado Oficial en Penales: <span className="underline">{partido.ganadorPenaltis}</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -294,7 +360,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
           fase: p.fase || 'Fase de Grupos',
           grupo: p.grupo || null,
           golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
+          ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
         }));
       } else if (data && Array.isArray(data.partidos)) {
         partidosList = data.partidos.map(p => ({
@@ -306,7 +373,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
           fase: p.fase || 'Fase de Grupos',
           grupo: p.grupo || null,
           golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
+          ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
         }));
       }
 
@@ -320,7 +388,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       finalPartidos.forEach(p => {
         scores[p.id] = {
           local: p.golesRealLocal !== null && p.golesRealLocal !== undefined ? p.golesRealLocal.toString() : '',
-          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : ''
+          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : '',
+          ganadorPenaltis: p.ganadorPenaltis || ''
         };
       });
       setRealScores(scores);
@@ -333,7 +402,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       localList.forEach(p => {
         scores[p.id] = {
           local: p.golesRealLocal !== null && p.golesRealLocal !== undefined ? p.golesRealLocal.toString() : '',
-          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : ''
+          visitante: p.golesRealVisitante !== null && p.golesRealVisitante !== undefined ? p.golesRealVisitante.toString() : '',
+          ganadorPenaltis: p.ganadorPenaltis || ''
         };
       });
       setRealScores(scores);
@@ -382,7 +452,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
           nombreJugador: nombre.toString().trim(),
           estado: pr.estado || 'registrado',
           golesLocal: isNaN(gl) ? 0 : gl,
-          golesVisitante: isNaN(gv) ? 0 : gv
+          golesVisitante: isNaN(gv) ? 0 : gv,
+          ganadorPenaltis: pr.ganadorPenaltis || pr.ganador_penaltis || null
         };
       });
 
@@ -544,6 +615,9 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setSavingScoreId(partidoId);
     const golesLocal = scores.local === '' ? null : parseInt(scores.local);
     const golesVisitante = scores.visitante === '' ? null : parseInt(scores.visitante);
+    const ganadorPenaltis = (golesLocal !== null && golesVisitante !== null && golesLocal === golesVisitante)
+      ? (scores.ganadorPenaltis || null)
+      : null;
 
     try {
       // Intentar en AWS
@@ -552,7 +626,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
         body: JSON.stringify({
           partidoId,
           golesRealLocal: golesLocal,
-          golesRealVisitante: golesVisitante
+          golesRealVisitante: golesVisitante,
+          ganadorPenaltis
         })
       });
     } catch (err) {
@@ -563,7 +638,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
     const localList = getLocalPartidos();
     const updated = localList.map(p => {
       if (p.id === partidoId) {
-        return { ...p, golesRealLocal: golesLocal, golesRealVisitante: golesVisitante };
+        return { ...p, golesRealLocal: golesLocal, golesRealVisitante: golesVisitante, ganadorPenaltis };
       }
       return p;
     });
@@ -977,24 +1052,38 @@ export default function AdminView({ activeSection, onSectionChange }) {
                             const pronoVisitante = p.golesVisitante;
                             const realLocal = partido.golesRealLocal;
                             const realVisitante = partido.golesRealVisitante;
+                            const isRealDraw = realLocal === realVisitante;
+                            const isPronoDraw = pronoLocal === pronoVisitante;
+                            const isKnockout = partido.fase !== 'Fase de Grupos';
 
-                            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-                              exacto = true;
-                            } else {
-                              const isRealLocalWin = realLocal > realVisitante;
-                              const isRealVisitanteWin = realLocal < realVisitante;
-                              const isRealDraw = realLocal === realVisitante;
-                              
-                              const isPronoLocalWin = pronoLocal > pronoVisitante;
-                              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-                              const isPronoDraw = pronoLocal === pronoVisitante;
-                              
-                              if (
-                                (isRealLocalWin && isPronoLocalWin) ||
-                                (isRealVisitanteWin && isPronoVisitanteWin) ||
-                                (isRealDraw && isPronoDraw)
-                              ) {
+                            if (isRealDraw && isKnockout) {
+                              const realClasifica = partido.ganadorPenaltis;
+                              const pronoClasifica = p.ganadorPenaltis;
+                              const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
+                              const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+
+                              if (acertoMarcadorExacto && acertoClasificado) {
+                                exacto = true;
+                              } else if (acertoClasificado) {
                                 ganador = true;
+                              }
+                            } else {
+                              if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+                                exacto = true;
+                              } else {
+                                const isRealLocalWin = realLocal > realVisitante;
+                                const isRealVisitanteWin = realLocal < realVisitante;
+                                
+                                const isPronoLocalWin = pronoLocal > pronoVisitante;
+                                const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+                                
+                                if (
+                                  (isRealLocalWin && isPronoLocalWin) ||
+                                  (isRealVisitanteWin && isPronoVisitanteWin) ||
+                                  (isRealDraw && isPronoDraw)
+                                ) {
+                                  ganador = true;
+                                }
                               }
                             }
                           }
@@ -1014,7 +1103,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                             <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate">{p.nombreJugador || p.usuario || 'Jugador'}</p>
-                                <p className="text-[10px] text-gray-500 font-semibold flex items-center gap-1.5">
+                                <p className="text-[10px] text-gray-500 font-semibold flex items-center gap-1.5 flex-wrap">
                                   <span>CC @{p.userCedula || p.usuario || 'CC'}</span>
                                   {hasOfficialResult && (
                                     <span className={`text-[9px] font-bold px-1 rounded ${
@@ -1024,6 +1113,11 @@ export default function AdminView({ activeSection, onSectionChange }) {
                                     </span>
                                   )}
                                 </p>
+                                {partido.fase !== 'Fase de Grupos' && p.golesLocal === p.golesVisitante && p.ganadorPenaltis && (
+                                  <p className="text-[9px] text-gold-500/80 font-bold mt-0.5">
+                                    Clasifica: {p.ganadorPenaltis}
+                                  </p>
+                                )}
                               </div>
                               <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${statusClasses}`}>
                                 <span>{p.marcadorCombinado}</span>
