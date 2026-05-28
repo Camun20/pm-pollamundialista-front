@@ -49,8 +49,9 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const [newUserCedula, setNewUserCedula] = useState('');
   const [newUserNombre, setNewUserNombre] = useState('');
   const [newUserRol, setNewUserRol] = useState('user');
-  const [newUserPassword, setNewUserPassword] = useState('123');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [usuariosError, setUsuariosError] = useState(null);
   const [usuariosSuccess, setUsuariosSuccess] = useState(false);
@@ -357,6 +358,14 @@ export default function AdminView({ activeSection, onSectionChange }) {
       setUsuariosError('La cédula y el nombre son obligatorios');
       return;
     }
+    if (!newUserPassword.trim()) {
+      setUsuariosError('La contraseña temporal es obligatoria');
+      return;
+    }
+    if (!/^\d+$/.test(newUserPassword)) {
+      setUsuariosError('La contraseña debe contener solo números');
+      return;
+    }
 
     setLoadingUsuarios(true);
     setUsuariosError(null);
@@ -367,7 +376,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
       nombre: newUserNombre.trim(),
       rol: newUserRol,
       contrasena: newUserPassword,
-      mustChangePassword: newUserPassword === '123'
+      mustChangePassword: true // Siempre obligar a cambiar contraseña la primera vez
     };
 
     try {
@@ -390,7 +399,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
       setUsuariosSuccess(true);
       setNewUserCedula('');
       setNewUserNombre('');
-      setNewUserPassword('123');
+      setNewUserPassword('');
       setNewUserRol('user');
       setTimeout(() => setUsuariosSuccess(false), 3000);
     } catch (localErr) {
@@ -703,19 +712,32 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       <div className="text-xs text-gray-500 italic py-2">Ningún jugador ha enviado pronóstico para este partido todavía.</div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {pronosticosPartido.map((p, idx) => (
-                          <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">{p.nombreJugador}</p>
-                              <p className="text-[10px] text-gray-500 font-semibold">CC @{p.userCedula}</p>
+                        {pronosticosPartido.map((p, idx) => {
+                          const hasOfficialResult = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
+                          const officialScoreString = hasOfficialResult ? `${partido.golesRealLocal}-${partido.golesRealVisitante}` : '';
+                          const isWinner = hasOfficialResult && p.marcadorCombinado === officialScoreString;
+
+                          return (
+                            <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-white truncate">{p.nombreJugador || p.usuario || 'Jugador'}</p>
+                                <p className="text-[10px] text-gray-500 font-semibold">CC @{p.userCedula || p.usuario || 'CC'}</p>
+                              </div>
+                              <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${
+                                !hasOfficialResult 
+                                  ? 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300' 
+                                  : isWinner 
+                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5 animate-pulse' 
+                                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                              }`}>
+                                <span>{p.marcadorCombinado}</span>
+                              </div>
                             </div>
-                            <div className="shrink-0 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
-                              <span className="text-sm font-black text-emerald-400 tracking-wider">{p.marcadorCombinado}</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
+
                   </div>
                 );
               })}
@@ -767,13 +789,18 @@ export default function AdminView({ activeSection, onSectionChange }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Contraseña Inicial</label>
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Contraseña Inicial (Solo Números)</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    placeholder="Contraseña inicial"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || /^\d+$/.test(val)) {
+                        setNewUserPassword(val);
+                      }
+                    }}
+                    placeholder="ej. 12345 (Clave temporal numérica)"
                     className="w-full bg-brand-blue-900/60 border border-gold-500/10 text-white rounded-xl py-2.5 pl-3 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
                   />
                   <button
@@ -785,6 +812,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   </button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Rol</label>
                 <select

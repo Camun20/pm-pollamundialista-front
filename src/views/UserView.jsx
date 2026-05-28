@@ -283,21 +283,31 @@ export default function UserView({ activeSection }) {
                   <div 
                     key={pronostico.id} 
                     className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${
-                      esGanador ? 'border-l-emerald-500 shadow-lg shadow-emerald-500/10' : 'border-l-gold-500'
+                      tieneMarcadorReal
+                        ? esGanador 
+                          ? 'border-l-emerald-500 shadow-lg shadow-emerald-500/10' 
+                          : 'border-l-rose-500 shadow-lg shadow-rose-500/5'
+                        : 'border-l-gold-500'
                     }`}
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${esGanador ? 'text-emerald-400' : 'text-gold-500'}`}>
-                          {tieneMarcadorReal ? (esGanador ? 'Marcador Acertado' : 'Finalizado') : 'Pronóstico Guardado'}
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                          tieneMarcadorReal 
+                            ? esGanador 
+                              ? 'text-emerald-400' 
+                              : 'text-rose-400' 
+                            : 'text-gold-500'
+                        }`}>
+                          {tieneMarcadorReal ? (esGanador ? '¡Acertaste al marcador!' : 'Tu marcador falló') : 'Pronóstico Guardado'}
                         </span>
                       </div>
                       <p className="text-base font-semibold text-white flex items-center gap-1.5">
-                        {renderFlag(pronostico.equipo1)}
-                        <span>{pronostico.equipo1}</span>
+                        {renderFlag(partidoOriginal.equipo1)}
+                        <span>{partidoOriginal.equipo1 || 'Local'}</span>
                         <span className="text-xs text-gold-500 font-bold">vs</span>
-                        {renderFlag(pronostico.equipo2)}
-                        <span>{pronostico.equipo2}</span>
+                        {renderFlag(partidoOriginal.equipo2)}
+                        <span>{partidoOriginal.equipo2 || 'Visitante'}</span>
                       </p>
                       {tieneMarcadorReal && (
                         <p className="text-xs text-gray-400 mt-1">
@@ -306,8 +316,10 @@ export default function UserView({ activeSection }) {
                       )}
                     </div>
                     <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${
-                      esGanador 
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' 
+                      tieneMarcadorReal
+                        ? esGanador 
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' 
+                          : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
                         : 'bg-gold-500/10 text-gold-500 border-gold-500/20'
                     }`}>
                       {pronostico.golesLocal} - {pronostico.golesVisitante}
