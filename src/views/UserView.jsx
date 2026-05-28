@@ -22,6 +22,7 @@ export default function UserView({ activeSection }) {
   const [partidos, setPartidos] = useState([]);
   const [todosPronosticos, setTodosPronosticos] = useState([]);
   const [misPronosticos, setMisPronosticos] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   
   // Estados de carga e interacción
   const [loading, setLoading] = useState(true);
@@ -38,9 +39,10 @@ export default function UserView({ activeSection }) {
     setLoading(true);
     setError(null);
     try {
-      const [todosPartidos, pronosticosCargados] = await Promise.all([
+      const [todosPartidos, pronosticosCargados, usuariosCargados] = await Promise.all([
         apiRequest('/partidos'),
-        apiRequest('/pronosticos')
+        apiRequest('/pronosticos'),
+        apiRequest('/usuarios').catch(() => [])
       ]);
 
       const rawPartidos = Array.isArray(todosPartidos) ? todosPartidos : [];
@@ -50,6 +52,8 @@ export default function UserView({ activeSection }) {
         equipo2: p.equipo2 || p.equipo_b || 'Visitante',
         fecha: p.fecha?.split('T')[0] || p.fecha || '',
         hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+        fase: p.fase || 'Fase de Grupos',
+        grupo: p.grupo || null,
         golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
         golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
       }));
@@ -70,6 +74,7 @@ export default function UserView({ activeSection }) {
 
       setPartidos(partidosList);
       setTodosPronosticos(pronosticosList);
+      setUsuarios(usuariosCargados);
 
 
       // Filtrar pronósticos para el usuario actual (usando su cédula)
@@ -223,6 +228,221 @@ export default function UserView({ activeSection }) {
     return null;
   };
 
+  const getPhaseName = (tab) => {
+    switch (tab) {
+      case 'fase-grupos': return 'Fase de Grupos';
+      case 'fase-16': return 'Dieciseisavos';
+      case 'fase-8': return 'Octavos';
+      case 'fase-4': return 'Cuartos';
+      case 'fase-2': return 'Semifinal';
+      case 'fase-1': return 'Final';
+      default: return '';
+    }
+  };
+
+  const getLeaderboard = () => {
+    // Si no cargó usuarios aún, incluir al menos al usuario actual para evitar pantalla vacía
+    const userList = usuarios.length > 0 ? usuarios : [{ username: user.username, nombre: user.nombre, rol: user.rol }];
+    
+    const leaderboard = userList.map(u => {
+      const userPronos = todosPronosticos.filter(p => p.usuario === u.username);
+      
+      let totalPuntos = 0;
+      let aciertosExactos = 0;
+      let aciertosGanador = 0;
+      
+      userPronos.forEach(prono => {
+        const match = partidos.find(p => p.id === prono.partidoId);
+        if (match && match.golesRealLocal !== null && match.golesRealVisitante !== null) {
+          const pronoLocal = prono.golesLocal;
+          const pronoVisitante = prono.golesVisitante;
+          const realLocal = match.golesRealLocal;
+          const realVisitante = match.golesRealVisitante;
+          
+          if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+            totalPuntos += 5;
+            aciertosExactos += 1;
+          } else {
+            const isRealLocalWin = realLocal > realVisitante;
+            const isRealVisitanteWin = realLocal < realVisitante;
+            const isRealDraw = realLocal === realVisitante;
+            
+            const isPronoLocalWin = pronoLocal > pronoVisitante;
+            const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+            const isPronoDraw = pronoLocal === pronoVisitante;
+            
+            if (
+              (isRealLocalWin && isPronoLocalWin) ||
+              (isRealVisitanteWin && isPronoVisitanteWin) ||
+              (isRealDraw && isPronoDraw)
+            ) {
+              totalPuntos += 3;
+              aciertosGanador += 1;
+            }
+          }
+        }
+      });
+      
+      return {
+        username: u.username,
+        nombre: u.nombre,
+        rol: u.rol,
+        puntos: totalPuntos,
+        aciertosExactos,
+        aciertosGanador
+      };
+    });
+    
+    leaderboard.sort((a, b) => b.puntos - a.puntos || a.nombre.localeCompare(b.nombre));
+    return leaderboard;
+  };
+
+  const renderUserMatchCard = (partido) => {
+    const inputs = pronosticoInputs[partido.id] || { golesLocal: '', golesVisitante: '' };
+    const yaPronosticado = misPronosticos.some(p => p.partidoId === partido.id);
+    const isLoading = apuestaLoading[partido.id];
+    const matchError = apuestaError[partido.id];
+    const matchSuccess = apuestaSuccess[partido.id];
+    const windowStatus = getBettingWindowStatus(partido.fecha, partido.hora);
+
+    return (
+      <div 
+        key={partido.id} 
+        className={`glass-card rounded-3xl p-6 border transition-all ${
+          yaPronosticado ? 'border-gold-500/30 bg-gold-500/5' : 'border-gold-500/10'
+        }`}
+      >
+        {/* Encabezado del partido (Fecha, hora, alertas) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-gray-400 pb-4 border-b border-brand-blue-800/40">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Calendar size={12} className="text-brand-blue-600" />
+              {partido.fecha}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <Clock size={12} className="text-brand-blue-600" />
+              {partido.hora}
+            </span>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-2">
+            {yaPronosticado && (
+              <span className="bg-gold-500/10 text-gold-500 border border-gold-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                Tu Apuesta Registrada
+              </span>
+            )}
+            {partido.golesRealLocal !== null && (
+              <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                Terminado: {partido.golesRealLocal} - {partido.golesRealVisitante}
+              </span>
+            )}
+            {partido.golesRealLocal === null && (
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                windowStatus.open 
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                  : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+              }`}>
+                {windowStatus.open ? <Unlock size={12} /> : <Lock size={12} />}
+                {windowStatus.message}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Cuerpo del Partido: Equipos e Inputs */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6">
+          <div className="flex items-center justify-between w-full md:max-w-2xl gap-4">
+            
+            {/* Local Team Container */}
+            <div className="flex flex-col items-center flex-1 text-center space-y-3">
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
+                  {getCountryFlagUrl(partido.equipo1) ? (
+                    <img src={getCountryFlagUrl(partido.equipo1)} alt={partido.equipo1} className="w-full h-full object-cover scale-110" />
+                  ) : (
+                    <span className="text-xs font-bold">{partido.equipo1.substring(0, 2)}</span>
+                  )}
+                </div>
+                <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo1}</span>
+              </div>
+              
+              {/* Input de Goles Local debajo del país */}
+              <input
+                type="text"
+                value={inputs.golesLocal}
+                onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
+                placeholder="0"
+                disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              />
+            </div>
+
+            {/* VS Separator */}
+            <div className="flex flex-col items-center shrink-0 px-2 self-start pt-2">
+              <span className="text-xs font-black px-3 py-1 rounded-full bg-brand-blue-800 text-brand-blue-400 uppercase tracking-wider">VS</span>
+              <span className="text-xl font-bold text-gold-500/50 mt-4">-</span>
+            </div>
+
+            {/* Visitante Team Container */}
+            <div className="flex flex-col items-center flex-1 text-center space-y-3">
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
+                  {getCountryFlagUrl(partido.equipo2) ? (
+                    <img src={getCountryFlagUrl(partido.equipo2)} alt={partido.equipo2} className="w-full h-full object-cover scale-110" />
+                  ) : (
+                    <span className="text-xs font-bold">{partido.equipo2.substring(0, 2)}</span>
+                  )}
+                </div>
+                <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo2}</span>
+              </div>
+              
+              {/* Input de Goles Visitante debajo del país */}
+              <input
+                type="text"
+                value={inputs.golesVisitante}
+                onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
+                placeholder="0"
+                disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              />
+            </div>
+
+          </div>
+
+          {/* Botón para enviar */}
+          <div className="w-full md:w-auto flex justify-center items-center">
+            <button
+              onClick={() => handleEnviarPronostico(partido.id, partido)}
+              disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+              className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 ${
+                yaPronosticado 
+                  ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20 cursor-default" 
+                  : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 shadow-lg shadow-gold-500/10"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              <span>{isLoading ? "Guardando..." : yaPronosticado ? "Pronóstico Guardado" : "Guardar Pronóstico"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Mensajes de feedback */}
+        {matchSuccess && (
+          <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle size={14} />
+            <span>¡Tu marcador ha sido guardado de forma exitosa!</span>
+          </div>
+        )}
+        {matchError && (
+          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
+            <AlertCircle size={14} />
+            <span>{matchError}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto py-16 text-center text-gray-400 animate-pulse flex flex-col items-center justify-center gap-4">
@@ -334,204 +554,134 @@ export default function UserView({ activeSection }) {
         </div>
       )}
 
-      {/* SECCIÓN 2: PARTIDOS ACTIVOS Y APOSTAR */}
-      {(activeSection === 'partidos' || !activeSection) && (
+      {/* SECCIÓN 2: PESTAÑAS DE FASES DE PARTIDOS (PARA PRONÓSTICOS) */}
+      {activeSection.startsWith('fase-') && (
         <div>
-          <h2 className="text-2xl font-bold text-white mb-1 tracking-wide">Partidos Activos y Apuestas de Amigos</h2>
-          <p className="text-sm text-gray-400 mb-6">
-            Escribe tu marcador (máximo 20 goles). Las apuestas se habilitan 2 horas antes de que inicie el partido y se cierran 10 minutos antes.
-          </p>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white tracking-wide">{getPhaseName(activeSection)}</h2>
+              <p className="text-sm text-gray-400">Pronostica los marcadores de los partidos en juego. Gana 5 puntos por marcador exacto y 3 por acertar ganador/empate.</p>
+            </div>
+            <button 
+              onClick={loadData}
+              className="p-2 bg-brand-blue-900 border border-brand-blue-800 hover:bg-brand-blue-800 text-gray-300 hover:text-white rounded-lg transition-all active:scale-95"
+              title="Actualizar partidos"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
 
           {partidos.length === 0 ? (
             <div className="glass-card rounded-2xl p-8 text-center text-gray-500">
               No hay partidos activos en este momento.
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6">
-              {partidos.map((partido) => {
-                const inputs = pronosticoInputs[partido.id] || { golesLocal: '', golesVisitante: '' };
-                const yaPronosticado = misPronosticos.some(p => p.partidoId === partido.id);
-                const isLoading = apuestaLoading[partido.id];
-                const matchError = apuestaError[partido.id];
-                const matchSuccess = apuestaSuccess[partido.id];
-
-                // Validar ventana de apuestas
-                const windowStatus = getBettingWindowStatus(partido.fecha, partido.hora);
-
-                // Pronósticos de OTROS usuarios para este partido
-                const otrosPronosticos = todosPronosticos.filter(
-                  p => p.partidoId === partido.id && p.usuario !== user.username
-                );
-
+          ) : activeSection === 'fase-grupos' ? (
+            // Fase de Grupos organizada de Grupo A a L
+            <div className="space-y-8">
+              {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map((grp) => {
+                const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.grupo === grp);
+                
                 return (
-                  <div 
-                    key={partido.id} 
-                    className={`glass-card rounded-3xl p-6 border transition-all ${
-                      yaPronosticado ? 'border-gold-500/30 bg-gold-500/5' : 'border-gold-500/10'
-                    }`}
-                  >
-                    {/* Encabezado del partido (Fecha, hora, alertas) */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-gray-400 pb-4 border-b border-brand-blue-800/40">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={12} className="text-brand-blue-600" />
-                          {partido.fecha}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock size={12} className="text-brand-blue-600" />
-                          {partido.hora}
-                        </span>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-2">
-                        {yaPronosticado && (
-                          <span className="bg-gold-500/10 text-gold-500 border border-gold-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                            Tu Apuesta Registrada
-                          </span>
-                        )}
-                        {partido.golesRealLocal !== null && (
-                          <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                            Terminado: {partido.golesRealLocal} - {partido.golesRealVisitante}
-                          </span>
-                        )}
-                        {partido.golesRealLocal === null && (
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                            windowStatus.open 
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                              : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                          }`}>
-                            {windowStatus.open ? <Unlock size={12} /> : <Lock size={12} />}
-                            {windowStatus.message}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Cuerpo del Partido: Equipos e Inputs */}
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6">
-                      <div className="flex items-center justify-between w-full md:max-w-2xl gap-4">
-                        
-                        {/* Local Team Container */}
-                        <div className="flex flex-col items-center flex-1 text-center space-y-3">
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
-                              {getCountryFlagUrl(partido.equipo1) ? (
-                                <img src={getCountryFlagUrl(partido.equipo1)} alt={partido.equipo1} className="w-full h-full object-cover scale-110" />
-                              ) : (
-                                <span className="text-xs font-bold">{partido.equipo1.substring(0, 2)}</span>
-                              )}
-                            </div>
-                            <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo1}</span>
-                          </div>
-                          
-                          {/* Input de Goles Local debajo del país */}
-                          <div className="flex flex-col items-center">
-                            <input
-                              type="text"
-                              value={inputs.golesLocal}
-                              onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
-                              placeholder="0"
-                              disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                              className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                            />
-                            <span className="text-[9px] uppercase text-gray-500 mt-1 font-bold tracking-wider">Local</span>
-                          </div>
-                        </div>
-
-                        {/* VS Separator */}
-                        <div className="flex flex-col items-center shrink-0 px-2 self-start pt-2">
-                          <span className="text-xs font-black px-3 py-1 rounded-full bg-brand-blue-800 text-brand-blue-400 uppercase tracking-wider">VS</span>
-                          <span className="text-xl font-bold text-gold-500/50 mt-4">-</span>
-                        </div>
-
-                        {/* Visitante Team Container */}
-                        <div className="flex flex-col items-center flex-1 text-center space-y-3">
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
-                              {getCountryFlagUrl(partido.equipo2) ? (
-                                <img src={getCountryFlagUrl(partido.equipo2)} alt={partido.equipo2} className="w-full h-full object-cover scale-110" />
-                              ) : (
-                                <span className="text-xs font-bold">{partido.equipo2.substring(0, 2)}</span>
-                              )}
-                            </div>
-                            <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo2}</span>
-                          </div>
-                          
-                          {/* Input de Goles Visitante debajo del país */}
-                          <div className="flex flex-col items-center">
-                            <input
-                              type="text"
-                              value={inputs.golesVisitante}
-                              onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
-                              placeholder="0"
-                              disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                              className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                            />
-                            <span className="text-[9px] uppercase text-gray-500 mt-1 font-bold tracking-wider">Visitante</span>
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Botón para enviar */}
-                      <div className="w-full md:w-auto flex justify-center items-center">
-                        <button
-                          onClick={() => handleEnviarPronostico(partido.id, partido)}
-                          disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                          className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 ${
-                            yaPronosticado 
-                              ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20 cursor-default" 
-                              : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 shadow-lg shadow-gold-500/10"
-                          } disabled:opacity-40 disabled:cursor-not-allowed`}
-                        >
-                          <span>{isLoading ? "Guardando..." : yaPronosticado ? "Pronóstico Guardado" : "Guardar Pronóstico"}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Mensajes de feedback */}
-                    {matchSuccess && (
-                      <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
-                        <CheckCircle size={14} />
-                        <span>¡Tu marcador ha sido guardado de forma exitosa!</span>
+                  <div key={grp} className="space-y-4">
+                    <h3 className="text-lg font-black text-gold-500 tracking-wider uppercase border-b border-brand-blue-800/40 pb-2">Grupo {grp}</h3>
+                    {partidosGrupo.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic pl-2">No hay partidos programados para este grupo aún.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {partidosGrupo.map((partido) => renderUserMatchCard(partido))}
                       </div>
                     )}
-                    {matchError && (
-                      <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
-                        <AlertCircle size={14} />
-                        <span>{matchError}</span>
-                      </div>
-                    )}
-
-                    {/* SUB-SECCIÓN: PRONÓSTICOS DE OTROS AMIGOS PARA ESTE PARTIDO */}
-                    <div className="mt-6 pt-4 border-t border-brand-blue-800/80">
-                      <p className="text-xs font-bold uppercase tracking-wider text-brand-blue-600 mb-2">
-                        Apuestas de tus amigos ({otrosPronosticos.length}):
-                      </p>
-                      {otrosPronosticos.length === 0 ? (
-                        <p className="text-xs text-gray-500 italic">Ningún amigo ha apostado aún. ¡Sé el primero!</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {otrosPronosticos.map((p) => (
-                            <div 
-                              key={p.id} 
-                              className="bg-brand-blue-950/60 border border-brand-blue-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 flex items-center gap-2"
-                            >
-                              <span className="font-bold text-white">{p.nombre || p.usuario}</span>
-                              <span className="bg-gold-500/15 text-gold-500 border border-gold-500/25 px-1.5 py-0.5 rounded font-extrabold text-[10px]">
-                                {p.golesLocal} - {p.golesVisitante}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 );
               })}
             </div>
+          ) : (
+            // Otras Fases: Lista plana de partidos
+            (() => {
+              const faseName = getPhaseName(activeSection);
+              const partidosFase = partidos.filter(p => p.fase === faseName);
+              
+              if (partidosFase.length === 0) {
+                return (
+                  <div className="glass-card rounded-2xl p-8 text-center text-gray-500">
+                    No hay partidos programados para esta fase en este momento.
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="grid grid-cols-1 gap-6">
+                  {partidosFase.map((partido) => renderUserMatchCard(partido))}
+                </div>
+              );
+            })()
           )}
+        </div>
+      )}
+
+      {/* SECCIÓN 3: TABLA DE PUNTUACIÓN GLOBAL */}
+      {activeSection === 'puntuacion' && (
+        <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-black gold-gradient-text tracking-wide">Tabla de Puntuaciones</h3>
+              <p className="text-xs text-gray-400">Tabla de clasificación oficial en tiempo real de todos los participantes.</p>
+            </div>
+            <button 
+              onClick={loadData}
+              className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
+                  <th className="py-3 px-4">Posición</th>
+                  <th className="py-3 px-4">Jugador</th>
+                  <th className="py-3 px-4">Cédula</th>
+                  <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
+                  <th className="py-3 px-4 text-center">Ganador/Emp (3 pts)</th>
+                  <th className="py-3 px-4 text-right">Puntos Totales</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getLeaderboard().map((row, index) => {
+                  const isTop1 = index === 0;
+                  const isTop2 = index === 1;
+                  const isTop3 = index === 2;
+                  const isCurrentUser = row.username === user.username;
+                  
+                  return (
+                    <tr key={row.username} className={`border-b border-brand-blue-800/40 hover:bg-brand-blue-800/10 transition-colors ${
+                      isTop1 ? 'bg-gold-500/5' : ''
+                    } ${isCurrentUser ? 'bg-brand-blue-900/20 border-l-4 border-l-gold-500' : ''}`}>
+                      <td className="py-3 px-4 font-black">
+                        {isTop1 ? (
+                          <span className="text-gold-500 flex items-center gap-1">🥇 1º</span>
+                        ) : isTop2 ? (
+                          <span className="text-gray-300 flex items-center gap-1">🥈 2º</span>
+                        ) : isTop3 ? (
+                          <span className="text-amber-600 flex items-center gap-1">🥉 3º</span>
+                        ) : (
+                          <span className="text-gray-400 pl-1">{index + 1}º</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-white font-bold">
+                        {row.nombre} {isCurrentUser && <span className="text-[9px] uppercase tracking-wider font-extrabold text-gold-500 bg-gold-500/10 px-1.5 py-0.5 rounded border border-gold-500/20 ml-2">Tú</span>}
+                      </td>
+                      <td className="py-3 px-4 text-gray-500">@{row.username}</td>
+                      <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
+                      <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
+                      <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

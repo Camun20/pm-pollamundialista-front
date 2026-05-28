@@ -17,7 +17,11 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Pencil
+  Pencil,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 export default function AdminView({ activeSection, onSectionChange }) {
@@ -30,6 +34,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const [equipo2, setEquipo2] = useState('');
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
+  const [fase, setFase] = useState('Fase de Grupos');
+  const [grupo, setGrupo] = useState('A');
   const [loadingPartidos, setLoadingPartidos] = useState(false);
   const [createSuccess, setCreateSuccess] = useState(false);
   const [createError, setCreateError] = useState(null);
@@ -59,6 +65,206 @@ export default function AdminView({ activeSection, onSectionChange }) {
   // --- EDICIÓN DE USUARIOS ---
   const [editingUser, setEditingUser] = useState(null);
 
+  // --- BÚSQUEDA Y ORDENACIÓN DE USUARIOS ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('nombre'); // 'username', 'nombre', 'rol'
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc', 'desc'
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getProcessedUsuarios = () => {
+    let list = [...usuarios];
+    
+    // 1. Filtrar por cédula o nombre
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      list = list.filter(u => {
+        const cedula = (u.username || '').toLowerCase();
+        const nombre = (u.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return cedula.includes(term) || nombre.includes(term);
+      });
+    }
+
+    // 2. Ordenar por la columna seleccionada
+    list.sort((a, b) => {
+      let valA = a[sortField] || '';
+      let valB = b[sortField] || '';
+
+      if (typeof valA === 'string') valA = valA.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (typeof valB === 'string') valB = valB.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  };
+
+  const renderSortHeader = (field, label) => {
+    const isSorted = sortField === field;
+    return (
+      <th 
+        className="py-3 px-4 cursor-pointer hover:bg-brand-blue-800/30 select-none group transition-all"
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center gap-1.5">
+          <span>{label}</span>
+          <span className="text-gray-400 group-hover:text-gold-500 transition-colors">
+            {isSorted ? (
+              sortDirection === 'asc' ? <ArrowUp size={12} className="text-gold-500" /> : <ArrowDown size={12} className="text-gold-500" />
+            ) : (
+              <ArrowUpDown size={12} className="opacity-40 group-hover:opacity-100" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
+  const getPhaseName = (tab) => {
+    switch (tab) {
+      case 'fase-grupos': return 'Fase de Grupos';
+      case 'fase-16': return 'Dieciseisavos';
+      case 'fase-8': return 'Octavos';
+      case 'fase-4': return 'Cuartos';
+      case 'fase-2': return 'Semifinal';
+      case 'fase-1': return 'Final';
+      default: return '';
+    }
+  };
+
+  const getLeaderboard = () => {
+    const leaderboard = usuarios.map(user => {
+      const userPronos = pronosticos.filter(p => p.userCedula === user.username);
+      
+      let totalPuntos = 0;
+      let aciertosExactos = 0;
+      let aciertosGanador = 0;
+      
+      userPronos.forEach(prono => {
+        const match = partidos.find(p => p.id === prono.partidoId);
+        if (match && match.golesRealLocal !== null && match.golesRealVisitante !== null) {
+          const pronoLocal = prono.golesLocal;
+          const pronoVisitante = prono.golesVisitante;
+          const realLocal = match.golesRealLocal;
+          const realVisitante = match.golesRealVisitante;
+          
+          if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+            totalPuntos += 5;
+            aciertosExactos += 1;
+          } else {
+            const isRealLocalWin = realLocal > realVisitante;
+            const isRealVisitanteWin = realLocal < realVisitante;
+            const isRealDraw = realLocal === realVisitante;
+            
+            const isPronoLocalWin = pronoLocal > pronoVisitante;
+            const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+            const isPronoDraw = pronoLocal === pronoVisitante;
+            
+            if (
+              (isRealLocalWin && isPronoLocalWin) ||
+              (isRealVisitanteWin && isPronoVisitanteWin) ||
+              (isRealDraw && isPronoDraw)
+            ) {
+              totalPuntos += 3;
+              aciertosGanador += 1;
+            }
+          }
+        }
+      });
+      
+      return {
+        username: user.username,
+        nombre: user.nombre,
+        rol: user.rol,
+        puntos: totalPuntos,
+        aciertosExactos,
+        aciertosGanador
+      };
+    });
+    
+    leaderboard.sort((a, b) => b.puntos - a.puntos || a.nombre.localeCompare(b.nombre));
+    return leaderboard;
+  };
+
+  const renderAdminMatchRow = (partido) => {
+    const score = realScores[partido.id] || { local: '', visitante: '' };
+    const isSaving = savingScoreId === partido.id;
+
+    return (
+      <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+        
+        {/* Equipos */}
+        <div className="flex items-center gap-4 flex-1">
+          <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
+            <span className="truncate max-w-[120px]">{partido.equipo1}</span>
+            {renderFlag(partido.equipo1)}
+          </div>
+          <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
+          <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
+            {renderFlag(partido.equipo2)}
+            <span className="truncate max-w-[120px]">{partido.equipo2}</span>
+          </div>
+        </div>
+
+        {/* Marcador Real */}
+        <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 shrink-0 justify-center">
+          <input
+            type="number"
+            min="0"
+            value={score.local}
+            onChange={(e) => setRealScores({
+              ...realScores,
+              [partido.id]: { ...score, local: e.target.value }
+            })}
+            placeholder="-"
+            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+          />
+          <span className="text-gray-600 font-bold">:</span>
+          <input
+            type="number"
+            min="0"
+            value={score.visitante}
+            onChange={(e) => setRealScores({
+              ...realScores,
+              [partido.id]: { ...score, visitante: e.target.value }
+            })}
+            placeholder="-"
+            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+          />
+          <button
+            onClick={() => handleSaveRealScore(partido.id)}
+            disabled={isSaving}
+            className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+            title="Guardar marcador oficial"
+          >
+            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+          </button>
+        </div>
+
+        {/* Info adicional */}
+        <div className="text-right shrink-0">
+          <div className="text-xs font-bold text-gray-400 flex items-center justify-end gap-1">
+            <Clock size={12} className="text-gold-500" />
+            <span>{partido.fecha} | {partido.hora}</span>
+          </div>
+          {partido.golesRealLocal !== null && (
+            <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider text-right">Resultado Registrado</div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
+
   const getLocalPartidos = () => {
     const local = localStorage.getItem('pm_local_partidos');
     if (local) {
@@ -77,7 +283,17 @@ export default function AdminView({ activeSection, onSectionChange }) {
       const data = await apiRequest('/partidos');
       let partidosList = [];
       if (data && Array.isArray(data)) {
-        partidosList = data;
+        partidosList = data.map(p => ({
+          id: p.id || p.partido_id,
+          equipo1: p.equipo1 || p.equipo_a,
+          equipo2: p.equipo2 || p.equipo_b,
+          fecha: p.fecha || '',
+          hora: p.hora || '',
+          fase: p.fase || 'Fase de Grupos',
+          grupo: p.grupo || null,
+          golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
+          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+        }));
       } else if (data && Array.isArray(data.partidos)) {
         partidosList = data.partidos.map(p => ({
           id: p.partido_id || p.id,
@@ -85,6 +301,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
           equipo2: p.equipo_b || p.equipo2,
           fecha: p.fecha?.split('T')[0] || p.fecha || '',
           hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+          fase: p.fase || 'Fase de Grupos',
+          grupo: p.grupo || null,
           golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
           golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
         }));
@@ -234,14 +452,17 @@ export default function AdminView({ activeSection, onSectionChange }) {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'pronosticos') {
-      loadPronosticos();
-      loadPartidos();
-    } else if (activeTab === 'usuarios') {
+    if (activeTab === 'usuarios') {
       loadUsuarios();
     } else if (activeTab === 'partidos') {
       loadPartidos();
-      loadPronosticos(); 
+    } else if (activeTab === 'puntuacion') {
+      loadUsuarios();
+      loadPartidos();
+      loadPronosticos();
+    } else {
+      loadPartidos();
+      loadPronosticos();
     }
   }, [activeTab]);
 
@@ -267,6 +488,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       equipo2,
       fecha,
       hora,
+      fase,
+      grupo: fase === 'Fase de Grupos' ? grupo : null,
       golesRealLocal: null,
       golesRealVisitante: null
     };
@@ -279,7 +502,9 @@ export default function AdminView({ activeSection, onSectionChange }) {
           equipo1: equipo1,
           equipo2: equipo2,
           fecha,
-          hora
+          hora,
+          fase,
+          grupo: fase === 'Fase de Grupos' ? grupo : null
         })
       });
     } catch (err) {
@@ -298,6 +523,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
     setEquipo2('');
     setFecha('');
     setHora('');
+    setFase('Fase de Grupos');
+    setGrupo('A');
     loadPartidos();
     setTimeout(() => setCreateSuccess(false), 3000);
     setLoadingPartidos(false);
@@ -492,17 +719,17 @@ export default function AdminView({ activeSection, onSectionChange }) {
       
       {/* CONTENIDO DE PESTAÑAS */}
       
-      {/* 1. PESTAÑA: PARTIDOS Y RESULTADOS */}
+      {/* 1. PESTAÑA: GENERAR PARTIDOS */}
       {activeTab === 'partidos' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="max-w-xl mx-auto">
           {/* Formulario Crear Partido */}
-          <div className="glass-card rounded-2xl p-6 border border-gold-500/10 self-start lg:col-span-1">
-            <h3 className="text-lg font-bold gold-gradient-text mb-4">Crear Partido</h3>
+          <div className="glass-card rounded-2xl p-6 border border-gold-500/10 shadow-2xl">
+            <h3 className="text-xl font-bold gold-gradient-text mb-4 text-center">Generar Nuevo Partido</h3>
             
             {createSuccess && (
               <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle size={14} />
-                <span>¡Partido creado correctamente!</span>
+                <span>¡Partido creado y asignado exitosamente!</span>
               </div>
             )}
             {createError && (
@@ -544,113 +771,110 @@ export default function AdminView({ activeSection, onSectionChange }) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Fase del Torneo</label>
+                <select
+                  value={fase}
+                  onChange={(e) => setFase(e.target.value)}
+                  className="w-full bg-brand-blue-900 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                >
+                  <option value="Fase de Grupos">Fase de Grupos</option>
+                  <option value="Dieciseisavos">Dieciseisavos</option>
+                  <option value="Octavos">Octavos</option>
+                  <option value="Cuartos">Cuartos</option>
+                  <option value="Semifinal">Semifinal</option>
+                  <option value="Final">Final</option>
+                </select>
+              </div>
+
+              {fase === 'Fase de Grupos' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Grupo</label>
+                  <select
+                    value={grupo}
+                    onChange={(e) => setGrupo(e.target.value)}
+                    className="w-full bg-brand-blue-900 border border-gold-500/10 text-white rounded-xl py-2.5 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  >
+                    {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map(g => (
+                      <option key={g} value={g}>Grupo {g}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loadingPartidos}
-                className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10"
+                className="w-full py-3.5 rounded-xl font-extrabold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10"
               >
                 <Plus size={16} />
-                <span>{loadingPartidos ? 'Creando...' : 'Crear Partido'}</span>
+                <span>{loadingPartidos ? 'Generando...' : 'Generar Partido'}</span>
               </button>
             </form>
           </div>
+        </div>
+      )}
 
-          {/* Listado de Partidos */}
-          <div className="glass-card rounded-2xl p-6 border border-gold-500/10 lg:col-span-2 space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold gold-gradient-text">Partidos Programados</h3>
-              <button 
-                onClick={loadPartidos}
-                className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95 animate-none"
-              >
-                <RefreshCw size={14} />
-              </button>
+      {/* PESTAÑAS DE FASES DE PARTIDOS */}
+      {activeTab.startsWith('fase-') && (
+        <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-black gold-gradient-text tracking-wide">{getPhaseName(activeTab)}</h3>
+              <p className="text-xs text-gray-400">Listado de partidos programados y registro de marcadores oficiales.</p>
             </div>
+            <button 
+              onClick={loadPartidos}
+              className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
 
-            {loadingPartidos ? (
-              <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
-                <RefreshCw size={16} className="animate-spin text-gold-500" />
-                <span>Cargando partidos...</span>
-              </div>
-            ) : partidos.length === 0 ? (
-              <div className="py-12 text-center text-gray-500">No hay partidos programados en este momento.</div>
-            ) : (
-              <div className="overflow-x-auto w-full pb-2">
-
-                <div className="space-y-4 min-w-[650px]">
-                  {partidos.map((partido) => {
-                    const score = realScores[partido.id] || { local: '', visitante: '' };
-                    const isSaving = savingScoreId === partido.id;
-
+          {loadingPartidos ? (
+            <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
+              <RefreshCw size={16} className="animate-spin text-gold-500" />
+              <span>Cargando partidos...</span>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'fase-grupos' ? (
+                // Fase de Grupos organizada por Grupo A a L
+                <div className="space-y-6">
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map((grp) => {
+                    const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.grupo === grp);
+                    
                     return (
-                      <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
-                        
-                        {/* Equipos */}
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
-                            <span className="truncate max-w-[120px]">{partido.equipo1}</span>
-                            {renderFlag(partido.equipo1)}
+                      <div key={grp} className="p-4 rounded-xl bg-brand-blue-900/20 border border-brand-blue-800/40 space-y-3">
+                        <h4 className="text-sm font-black text-gold-500 tracking-wider uppercase border-b border-brand-blue-800/40 pb-2">Grupo {grp}</h4>
+                        {partidosGrupo.length === 0 ? (
+                          <p className="text-xs text-gray-500 italic py-1">No hay partidos programados en este grupo.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {partidosGrupo.map((partido) => renderAdminMatchRow(partido))}
                           </div>
-                          <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
-                          <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
-                            {renderFlag(partido.equipo2)}
-                            <span className="truncate max-w-[120px]">{partido.equipo2}</span>
-                          </div>
-                        </div>
-
-                        {/* Marcador Real */}
-                        <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 shrink-0 justify-center">
-                          <input
-                            type="number"
-                            min="0"
-                            value={score.local}
-                            onChange={(e) => setRealScores({
-                              ...realScores,
-                              [partido.id]: { ...score, local: e.target.value }
-                            })}
-                            placeholder="-"
-                            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-                          />
-                          <span className="text-gray-600 font-bold">:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={score.visitante}
-                            onChange={(e) => setRealScores({
-                              ...realScores,
-                              [partido.id]: { ...score, visitante: e.target.value }
-                            })}
-                            placeholder="-"
-                            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-                          />
-                          <button
-                            onClick={() => handleSaveRealScore(partido.id)}
-                            disabled={isSaving}
-                            className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-                            title="Guardar marcador oficial"
-                          >
-                            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                          </button>
-                        </div>
-
-                        {/* Info adicional */}
-                        <div className="text-right shrink-0">
-                          <div className="text-xs font-bold text-gray-400 flex items-center justify-end gap-1">
-                            <Clock size={12} className="text-gold-500" />
-                            <span>{partido.fecha} | {partido.hora}</span>
-                          </div>
-                          {partido.golesRealLocal !== null && (
-                            <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider text-right">Resultado Registrado</div>
-                          )}
-                        </div>
-
+                        )}
                       </div>
                     );
                   })}
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                // Otras fases: lista plana
+                (() => {
+                  const faseName = getPhaseName(activeTab);
+                  const partidosFase = partidos.filter(p => p.fase === faseName);
+                  if (partidosFase.length === 0) {
+                    return <div className="py-12 text-center text-gray-500">No hay partidos programados para esta fase en este momento.</div>;
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {partidosFase.map((partido) => renderAdminMatchRow(partido))}
+                    </div>
+                  );
+                })()
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -847,6 +1071,26 @@ export default function AdminView({ activeSection, onSectionChange }) {
               </button>
             </div>
 
+            {/* Barra de Búsqueda */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por cédula o nombre..."
+                className="w-full bg-[#090d16] border border-gold-500/15 focus:border-gold-500/50 text-white rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-gold-500/50 transition-all placeholder:text-gray-500"
+              />
+              <Search className="absolute left-3.5 top-3 text-gray-500" size={16} />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3.5 top-2.5 text-xs bg-brand-blue-900 hover:bg-brand-blue-800 border border-brand-blue-800 text-gray-400 hover:text-white px-2 py-0.5 rounded transition-all"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
             {loadingUsuarios ? (
               <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
                 <RefreshCw size={16} className="animate-spin text-gold-500" />
@@ -854,19 +1098,23 @@ export default function AdminView({ activeSection, onSectionChange }) {
               </div>
             ) : usuarios.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No hay usuarios registrados.</div>
+            ) : getProcessedUsuarios().length === 0 ? (
+              <div className="py-12 text-center text-gray-400 border border-dashed border-brand-blue-800 rounded-xl">
+                No se encontraron usuarios para "{searchTerm}".
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm border-collapse">
                   <thead>
                     <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4">Cédula</th>
-                      <th className="py-3 px-4">Nombre</th>
-                      <th className="py-3 px-4">Rol</th>
+                      {renderSortHeader('username', 'Cédula')}
+                      {renderSortHeader('nombre', 'Nombre')}
+                      {renderSortHeader('rol', 'Rol')}
                       <th className="py-3 px-4 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {usuarios.map((u) => (
+                    {getProcessedUsuarios().map((u) => (
                       <tr key={u.username} className="border-b border-brand-blue-800/40 hover:bg-brand-blue-800/10">
                         <td className="py-3 px-4 text-gray-400 font-semibold">@{u.username}</td>
                         <td className="py-3 px-4 text-white font-bold">{u.nombre}</td>
@@ -906,6 +1154,69 @@ export default function AdminView({ activeSection, onSectionChange }) {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 4. PESTAÑA: TABLA DE PUNTUACIÓN */}
+      {activeTab === 'puntuacion' && (
+        <div className="glass-card rounded-2xl p-6 border border-gold-500/10 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-black gold-gradient-text tracking-wide">Tabla de Puntuaciones</h3>
+              <p className="text-xs text-gray-400">Tabla de clasificación en tiempo real de todos los jugadores.</p>
+            </div>
+            <button 
+              onClick={() => { loadUsuarios(); loadPartidos(); loadPronosticos(); }}
+              className="p-2 rounded-lg bg-brand-blue-900/60 border border-brand-blue-800 text-gray-400 hover:text-white transition-all hover:bg-brand-blue-800/80 active:scale-95"
+            >
+              <RefreshCw size={14} />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
+                  <th className="py-3 px-4">Posición</th>
+                  <th className="py-3 px-4">Jugador</th>
+                  <th className="py-3 px-4">Cédula</th>
+                  <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
+                  <th className="py-3 px-4 text-center">Ganador/Emp (3 pts)</th>
+                  <th className="py-3 px-4 text-right">Puntos Totales</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getLeaderboard().map((row, index) => {
+                  const isTop1 = index === 0;
+                  const isTop2 = index === 1;
+                  const isTop3 = index === 2;
+                  
+                  return (
+                    <tr key={row.username} className={`border-b border-brand-blue-800/40 hover:bg-brand-blue-800/10 transition-colors ${
+                      isTop1 ? 'bg-gold-500/5' : ''
+                    }`}>
+                      <td className="py-3 px-4 font-black">
+                        {isTop1 ? (
+                          <span className="text-gold-500 flex items-center gap-1">🥇 1º</span>
+                        ) : isTop2 ? (
+                          <span className="text-gray-300 flex items-center gap-1">🥈 2º</span>
+                        ) : isTop3 ? (
+                          <span className="text-amber-600 flex items-center gap-1">🥉 3º</span>
+                        ) : (
+                          <span className="text-gray-400 pl-1">{index + 1}º</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-white font-bold">{row.nombre}</td>
+                      <td className="py-3 px-4 text-gray-500">@{row.username}</td>
+                      <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
+                      <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
+                      <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

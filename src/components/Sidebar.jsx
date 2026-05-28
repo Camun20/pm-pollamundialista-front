@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
 import {
-  Menu, X, Trophy, BarChart2, Users, CalendarDays, LogOut, UserCircle2, ChevronRight
+  Menu, X, Trophy, BarChart2, Users, CalendarDays, LogOut, UserCircle2, ChevronRight,
+  Shield, Swords, Crown, Medal, CalendarPlus, Grid
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const ADMIN_MENU = [
-  { key: 'partidos',    label: 'Partidos y Resultados', Icon: CalendarDays },
-  { key: 'pronosticos', label: 'Pronósticos por Partido', Icon: BarChart2  },
-  { key: 'usuarios',    label: 'Gestionar Usuarios',     Icon: Users        },
+  { key: 'partidos',      label: 'Generar Partidos',       Icon: CalendarPlus },
+  { key: 'fase-grupos',   label: 'Fase de Grupos',         Icon: Grid         },
+  { key: 'fase-16',       label: 'Dieciseisavos',          Icon: Shield       },
+  { key: 'fase-8',        label: 'Octavos de Final',       Icon: Swords       },
+  { key: 'fase-4',        label: 'Cuartos de Final',       Icon: Swords       },
+  { key: 'fase-2',        label: 'Semifinal',              Icon: Swords       },
+  { key: 'fase-1',        label: 'Final',                  Icon: Crown        },
+  { key: 'pronosticos',   label: 'Pronósticos por Partido', Icon: BarChart2    },
+  { key: 'usuarios',      label: 'Gestionar Usuarios',     Icon: Users        },
+  { key: 'puntuacion',    label: 'Tabla de Puntuación',    Icon: Medal        },
 ];
 
 const USER_MENU = [
-  { key: 'mis-pronosticos', label: 'Mis Pronósticos',  Icon: Trophy       },
-  { key: 'partidos',        label: 'Partidos y Apuestas', Icon: CalendarDays },
+  { key: 'mis-pronosticos', label: 'Mis Pronósticos',     Icon: Trophy       },
+  { key: 'fase-grupos',     label: 'Fase de Grupos',       Icon: Grid         },
+  { key: 'fase-16',         label: 'Dieciseisavos',        Icon: Shield       },
+  { key: 'fase-8',          label: 'Octavos de Final',     Icon: Swords       },
+  { key: 'fase-4',          label: 'Cuartos de Final',     Icon: Swords       },
+  { key: 'fase-2',          label: 'Semifinal',            Icon: Swords       },
+  { key: 'fase-1',          label: 'Final',                Icon: Crown        },
+  { key: 'puntuacion',      label: 'Tabla de Puntuación',  Icon: Medal        },
 ];
 
 export default function Sidebar({ activeSection, onSectionChange }) {
