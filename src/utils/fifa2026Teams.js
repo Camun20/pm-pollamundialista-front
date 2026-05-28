@@ -7,15 +7,15 @@ export const FIFA_2026_TEAMS = [
   { name: "Colombia",      code: "CO" },
   { name: "Ecuador",       code: "EC" },
   { name: "Uruguay",       code: "UY" },
-  { name: "Venezuela",     code: "VE" },
+  { name: "Paraguay",      code: "PY" },
 
   // CONCACAF (6 + 3 sedes automáticas)
   { name: "México",        code: "MX" },
   { name: "Estados Unidos",code: "US" },
   { name: "Canadá",        code: "CA" },
   { name: "Panamá",        code: "PA" },
-  { name: "Costa Rica",    code: "CR" },
-  { name: "Honduras",      code: "HN" },
+  { name: "Haití",         code: "HT" },
+  { name: "Curazao",       code: "CW" },
 
   // UEFA (16)
   { name: "España",        code: "ES" },
@@ -24,29 +24,28 @@ export const FIFA_2026_TEAMS = [
   { name: "Inglaterra",    code: "GB-ENG" },
   { name: "Portugal",      code: "PT" },
   { name: "Países Bajos",  code: "NL" },
-  { name: "Italia",        code: "IT" },
   { name: "Bélgica",       code: "BE" },
   { name: "Croacia",       code: "HR" },
-  { name: "Dinamarca",     code: "DK" },
   { name: "Austria",       code: "AT" },
   { name: "Suiza",         code: "CH" },
   { name: "Escocia",       code: "GB-SCT" },
-  { name: "Serbia",        code: "RS" },
   { name: "Turquía",       code: "TR" },
-  { name: "Ucrania",       code: "UA" },
-  { name: "Hungría",       code: "HU" },
-  { name: "Polonia",       code: "PL" },
+  { name: "República Checa",code: "CZ" },
+  { name: "Bosnia y Herzegovina",code: "BA" },
+  { name: "Suecia",        code: "SE" },
+  { name: "Noruega",       code: "NO" },
 
   // CAF (África - 9)
   { name: "Marruecos",     code: "MA" },
   { name: "Senegal",       code: "SN" },
-  { name: "Nigeria",       code: "NG" },
   { name: "Egipto",        code: "EG" },
-  { name: "Camerún",       code: "CM" },
   { name: "Costa de Marfil",code:"CI" },
   { name: "Ghana",         code: "GH" },
   { name: "Sudáfrica",     code: "ZA" },
-  { name: "Mali",          code: "ML" },
+  { name: "Túnez",         code: "TN" },
+  { name: "Cabo Verde",    code: "CV" },
+  { name: "Argelia",       code: "DZ" },
+  { name: "República del Congo",code: "CG" },
 
   // AFC (Asia - 8)
   { name: "Japón",         code: "JP" },
@@ -57,20 +56,17 @@ export const FIFA_2026_TEAMS = [
   { name: "Iraq",          code: "IQ" },
   { name: "Uzbekistán",    code: "UZ" },
   { name: "Jordania",      code: "JO" },
+  { name: "Qatar",         code: "QA" },
 
   // OFC (Oceanía - 1)
   { name: "Nueva Zelanda", code: "NZ" },
 ];
 
 /**
- * Retorna la URL de la bandera de FlagsAPI dado el código ISO del país.
- * Soporte especial para GB-ENG (England) y GB-SCT (Scotland) que no existen en FlagsAPI.
+ * Retorna la URL de la bandera de FlagCDN dado el código ISO del país.
+ * Soporta códigos regionales como GB-ENG y GB-SCT de manera nativa.
  */
 export function getFlagUrl(code) {
   if (!code) return null;
-  // Códigos especiales de sub-naciones del Reino Unido: usar bandera UK
-  if (code === "GB-ENG" || code === "GB-SCT" || code === "GB-WLS") {
-    return `https://flagsapi.com/GB/flat/64.png`;
-  }
-  return `https://flagsapi.com/${code}/flat/64.png`;
+  return `https://flagcdn.com/w80/${code.toLowerCase()}.png`;
 }

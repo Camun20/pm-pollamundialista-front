@@ -76,23 +76,25 @@ export default function UserView({ activeSection }) {
       const filtrados = pronosticosList.filter(p => p.usuario === user.username.toString().trim());
       setMisPronosticos(filtrados);
 
-      // Inicializar los inputs de apuestas
-      const inputsIniciales = {};
-      partidosList.forEach(partido => {
-        const pronosticoExistente = filtrados.find(p => p.partidoId === partido.id);
-        if (pronosticoExistente) {
-          inputsIniciales[partido.id] = {
-            golesLocal: pronosticoExistente.golesLocal.toString(),
-            golesVisitante: pronosticoExistente.golesVisitante.toString()
-          };
-        } else {
-          inputsIniciales[partido.id] = {
-            golesLocal: '',
-            golesVisitante: ''
-          };
-        }
+      // Inicializar los inputs de apuestas preservando los valores que el usuario tenga digitados
+      setPronosticoInputs(prevInputs => {
+        const inputsIniciales = {};
+        partidosList.forEach(partido => {
+          const pronosticoExistente = filtrados.find(p => p.partidoId === partido.id);
+          if (pronosticoExistente) {
+            inputsIniciales[partido.id] = {
+              golesLocal: pronosticoExistente.golesLocal.toString(),
+              golesVisitante: pronosticoExistente.golesVisitante.toString()
+            };
+          } else {
+            inputsIniciales[partido.id] = {
+              golesLocal: prevInputs[partido.id]?.golesLocal || '',
+              golesVisitante: prevInputs[partido.id]?.golesVisitante || ''
+            };
+          }
+        });
+        return inputsIniciales;
       });
-      setPronosticoInputs(inputsIniciales);
 
     } catch (err) {
       setError(err.message || 'Error al cargar los datos de la polla.');
@@ -368,99 +370,124 @@ export default function UserView({ activeSection }) {
                       yaPronosticado ? 'border-gold-500/30 bg-gold-500/5' : 'border-gold-500/10'
                     }`}
                   >
-                    <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
-                      {/* Detalles del partido */}
-                      <div className="flex-1 text-center lg:text-left space-y-2.5">
-                        <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 text-xs font-semibold text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} className="text-brand-blue-600" />
-                            {partido.fecha}
+                    {/* Encabezado del partido (Fecha, hora, alertas) */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-gray-400 pb-4 border-b border-brand-blue-800/40">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={12} className="text-brand-blue-600" />
+                          {partido.fecha}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} className="text-brand-blue-600" />
+                          {partido.hora}
+                        </span>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-2">
+                        {yaPronosticado && (
+                          <span className="bg-gold-500/10 text-gold-500 border border-gold-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                            Tu Apuesta Registrada
                           </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} className="text-brand-blue-600" />
-                            {partido.hora}
-                          </span>
-                          
-                          {yaPronosticado && (
-                            <span className="bg-gold-500/10 text-gold-500 border border-gold-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                              Tu Apuesta Registrada
-                            </span>
-                          )}
-                          {partido.golesRealLocal !== null && (
-                            <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                              Terminado: {partido.golesRealLocal} - {partido.golesRealVisitante}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Estado de la Ventana de Apuestas */}
-                        {partido.golesRealLocal === null && (
-                          <div className="flex justify-center lg:justify-start">
-                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                              windowStatus.open 
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                                : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                            }`}>
-                              {windowStatus.open ? <Unlock size={12} /> : <Lock size={12} />}
-                              {windowStatus.message}
-                            </span>
-                          </div>
                         )}
+                        {partido.golesRealLocal !== null && (
+                          <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                            Terminado: {partido.golesRealLocal} - {partido.golesRealVisitante}
+                          </span>
+                        )}
+                        {partido.golesRealLocal === null && (
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                            windowStatus.open 
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                              : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                          }`}>
+                            {windowStatus.open ? <Unlock size={12} /> : <Lock size={12} />}
+                            {windowStatus.message}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                        <div className="flex items-center justify-center lg:justify-start gap-3 text-lg font-bold text-white pt-1">
-                          {renderFlag(partido.equipo1)}
-                          <span>{partido.equipo1}</span>
-                          <span className="text-xs text-gray-500 font-normal">VS</span>
-                          {renderFlag(partido.equipo2)}
-                          <span>{partido.equipo2}</span>
+                    {/* Cuerpo del Partido: Equipos e Inputs */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6">
+                      <div className="flex items-center justify-between w-full md:max-w-2xl gap-4">
+                        
+                        {/* Local Team Container */}
+                        <div className="flex flex-col items-center flex-1 text-center space-y-3">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
+                              {getCountryFlagUrl(partido.equipo1) ? (
+                                <img src={getCountryFlagUrl(partido.equipo1)} alt={partido.equipo1} className="w-full h-full object-cover scale-110" />
+                              ) : (
+                                <span className="text-xs font-bold">{partido.equipo1.substring(0, 2)}</span>
+                              )}
+                            </div>
+                            <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo1}</span>
+                          </div>
+                          
+                          {/* Input de Goles Local debajo del país */}
+                          <div className="flex flex-col items-center">
+                            <input
+                              type="text"
+                              value={inputs.golesLocal}
+                              onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
+                              placeholder="0"
+                              disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                              className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            />
+                            <span className="text-[9px] uppercase text-gray-500 mt-1 font-bold tracking-wider">Local</span>
+                          </div>
                         </div>
+
+                        {/* VS Separator */}
+                        <div className="flex flex-col items-center shrink-0 px-2 self-start pt-2">
+                          <span className="text-xs font-black px-3 py-1 rounded-full bg-brand-blue-800 text-brand-blue-400 uppercase tracking-wider">VS</span>
+                          <span className="text-xl font-bold text-gold-500/50 mt-4">-</span>
+                        </div>
+
+                        {/* Visitante Team Container */}
+                        <div className="flex flex-col items-center flex-1 text-center space-y-3">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
+                              {getCountryFlagUrl(partido.equipo2) ? (
+                                <img src={getCountryFlagUrl(partido.equipo2)} alt={partido.equipo2} className="w-full h-full object-cover scale-110" />
+                              ) : (
+                                <span className="text-xs font-bold">{partido.equipo2.substring(0, 2)}</span>
+                              )}
+                            </div>
+                            <span className="font-bold text-white text-base md:text-lg tracking-wide">{partido.equipo2}</span>
+                          </div>
+                          
+                          {/* Input de Goles Visitante debajo del país */}
+                          <div className="flex flex-col items-center">
+                            <input
+                              type="text"
+                              value={inputs.golesVisitante}
+                              onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
+                              placeholder="0"
+                              disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                              className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            />
+                            <span className="text-[9px] uppercase text-gray-500 mt-1 font-bold tracking-wider">Visitante</span>
+                          </div>
+                        </div>
+
                       </div>
 
-                      {/* Selector de marcadores */}
-                      <div className="flex items-center gap-3">
-                        {/* Goles Local */}
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] uppercase text-gray-500 mb-1 font-bold">Local</span>
-                          <input
-                            type="text"
-                            value={inputs.golesLocal}
-                            onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
-                            placeholder="0"
-                            disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                            className="w-16 bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
-                        </div>
-
-                        <span className="text-xl font-bold text-gold-500 mt-4">-</span>
-
-                        {/* Goles Visitante */}
-                        <div className="flex flex-col items-center">
-                          <span className="text-[10px] uppercase text-gray-500 mb-1 font-bold">Visita</span>
-                          <input
-                            type="text"
-                            value={inputs.golesVisitante}
-                            onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
-                            placeholder="0"
-                            disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                            className="w-16 bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-bold disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
-                        </div>
-
-                        {/* Botón para enviar (Deshabilitado tras pronosticar para evitar múltiples marcadores) */}
+                      {/* Botón para enviar */}
+                      <div className="w-full md:w-auto flex justify-center items-center">
                         <button
                           onClick={() => handleEnviarPronostico(partido.id, partido)}
                           disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
-                          className={`ml-4 px-5 py-3 rounded-xl font-extrabold text-sm transition-all flex items-center gap-2 ${
+                          className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 ${
                             yaPronosticado 
-                              ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20" 
-                              : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 shadow-lg shadow-gold-500/10"
-                          } active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed`}
+                              ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20 cursor-default" 
+                              : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 shadow-lg shadow-gold-500/10"
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
                         >
                           <span>{isLoading ? "Guardando..." : yaPronosticado ? "Pronóstico Guardado" : "Guardar Pronóstico"}</span>
                         </button>
                       </div>
-
                     </div>
 
                     {/* Mensajes de feedback */}

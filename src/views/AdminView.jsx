@@ -184,12 +184,13 @@ export default function AdminView({ activeSection, onSectionChange }) {
   const getLocalUsuarios = () => {
     const local = localStorage.getItem('pm_local_usuarios');
     if (local) {
-      try { return JSON.parse(local); } catch { }
+      try {
+        const parsed = JSON.parse(local);
+        // Purga activa de los usuarios de prueba creados localmente
+        return parsed.filter(u => u.username !== '1234' && u.username !== '123456789');
+      } catch { }
     }
-    const defaultUsers = [
-      { username: '1234', nombre: 'Administrador Atiempo', rol: 'admin', contrasena: '1234', mustChangePassword: false },
-      { username: '123456789', nombre: 'Juan Pérez (Demo)', rol: 'user', contrasena: '123', mustChangePassword: true }
-    ];
+    const defaultUsers = [];
     localStorage.setItem('pm_local_usuarios', JSON.stringify(defaultUsers));
     return defaultUsers;
   };
