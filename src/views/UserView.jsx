@@ -43,7 +43,16 @@ export default function UserView({ activeSection }) {
         apiRequest('/pronosticos')
       ]);
 
-      const partidosList = Array.isArray(todosPartidos) ? todosPartidos : [];
+      const rawPartidos = Array.isArray(todosPartidos) ? todosPartidos : [];
+      const partidosList = rawPartidos.map(p => ({
+        id: p.partido_id || p.id,
+        equipo1: p.equipo1 || p.equipo_a || 'Local',
+        equipo2: p.equipo2 || p.equipo_b || 'Visitante',
+        fecha: p.fecha?.split('T')[0] || p.fecha || '',
+        hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+        golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
+        golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null
+      }));
       const rawPronosticos = Array.isArray(pronosticosCargados) ? pronosticosCargados : [];
 
       const pronosticosList = rawPronosticos.map(pr => {
@@ -61,6 +70,7 @@ export default function UserView({ activeSection }) {
 
       setPartidos(partidosList);
       setTodosPronosticos(pronosticosList);
+
 
       // Filtrar pronósticos para el usuario actual (usando su cédula)
       const filtrados = pronosticosList.filter(p => p.usuario === user.username.toString().trim());

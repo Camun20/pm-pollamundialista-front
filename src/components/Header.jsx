@@ -12,9 +12,10 @@ export default function Header() {
     <header className="border-b border-brand-blue-800 bg-brand-blue-900/60 backdrop-blur-md sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
 
-        {/* LOGO EMPRESA → TÍTULO → LOGO MUNDIAL (pl-0 en el login, pl-10 en móvil con sesión para evitar el botón FAB de menú) */}
-        <div className={`flex items-center gap-2 sm:gap-4 transition-all duration-300 ${user ? 'pl-10 lg:pl-0' : 'pl-0'}`}>
+        {/* LOGO EMPRESA → TÍTULO → LOGO MUNDIAL (Alineado a la izquierda sin espacios vacíos pl-0) */}
+        <div className="flex items-center gap-2 sm:gap-4 transition-all duration-300 pl-0">
           {/* 1. Logo Empresa */}
+
           {hasLogoEmpresa ? (
             <img
               src={logoEmpresa}

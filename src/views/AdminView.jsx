@@ -135,17 +135,32 @@ export default function AdminView({ activeSection, onSectionChange }) {
     try {
       const data = await apiRequest('/pronosticos');
       let pronosticosList = [];
+      let rawPronosticos = [];
+
+
+
+
+
+
       if (Array.isArray(data)) {
-        pronosticosList = data;
+        rawPronosticos = data;
       } else if (data && Array.isArray(data.pronosticos)) {
-        pronosticosList = data.pronosticos.map(pr => ({
-          partidoId: pr.partido_id || pr.partidoId,
-          marcadorCombinado: pr.marcador_combinado || pr.marcadorCombinado,
-          userCedula: pr.user_id || pr.userCedula,
-          nombreJugador: pr.nombreJugador || 'Jugador',
-          estado: pr.estado
-        }));
+        rawPronosticos = data.pronosticos;
       }
+
+      pronosticosList = rawPronosticos.map(pr => {
+        const cedula = pr.usuario || pr.userCedula || pr.user_id || pr.user_cedula || '';
+        const nombre = pr.nombre || pr.nombreJugador || pr.nombre_jugador || 'Jugador';
+        const marcador = pr.marcadorCombinado || pr.marcador_combinado || `${pr.golesLocal}-${pr.golesVisitante}`;
+        return {
+          partidoId: pr.partidoId || pr.partido_id,
+          marcadorCombinado: marcador,
+          userCedula: cedula.toString().trim(),
+          nombreJugador: nombre.toString().trim(),
+          estado: pr.estado || 'registrado'
+        };
+      });
+
 
       const localList = getLocalPronosticos();
       const combined = [...localList];
