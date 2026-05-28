@@ -10,12 +10,12 @@ import ChangePasswordModal from './components/ChangePasswordModal';
 
 function MainAppContent() {
   const { user, loading, updateUser } = useAuth();
-  const [activeSection, setActiveSection] = useState('partidos');
+  const [activeSection, setActiveSection] = useState('usuarios');
 
   // Sincronizar la sección por defecto según el rol al iniciar sesión
   useEffect(() => {
     if (user) {
-      const initialSection = user.rol === 'admin' ? 'partidos' : 'mis-pronosticos';
+      const initialSection = user.rol === 'admin' ? 'usuarios' : 'mis-pronosticos';
       setActiveSection(initialSection);
     }
   }, [user?.username, user?.rol]);

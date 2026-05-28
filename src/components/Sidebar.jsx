@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const ADMIN_MENU = [
+  { key: 'usuarios',      label: 'Gestionar Usuarios',     Icon: Users        },
   { key: 'partidos',      label: 'Generar Partidos',       Icon: CalendarPlus },
   { key: 'fase-grupos',   label: 'Fase de Grupos',         Icon: Grid         },
   { key: 'fase-16',       label: 'Dieciseisavos',          Icon: Shield       },
@@ -14,7 +15,6 @@ const ADMIN_MENU = [
   { key: 'fase-2',        label: 'Semifinal',              Icon: Swords       },
   { key: 'fase-1',        label: 'Final',                  Icon: Crown        },
   { key: 'pronosticos',   label: 'Pronósticos por Partido', Icon: BarChart2    },
-  { key: 'usuarios',      label: 'Gestionar Usuarios',     Icon: Users        },
   { key: 'puntuacion',    label: 'Tabla de Puntuación',    Icon: Medal        },
 ];
 

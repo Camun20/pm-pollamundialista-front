@@ -30,6 +30,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
   
   // --- ESTADOS DE PARTIDOS ---
   const [partidos, setPartidos] = useState([]);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
   const [equipo1, setEquipo1] = useState('');
   const [equipo2, setEquipo2] = useState('');
   const [fecha, setFecha] = useState('');
@@ -142,7 +143,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
   };
 
   const getLeaderboard = () => {
-    const leaderboard = usuarios.map(user => {
+    const playersOnly = usuarios.filter(user => user.rol !== 'admin');
+    const leaderboard = playersOnly.map(user => {
       const userPronos = pronosticos.filter(p => p.userCedula === user.username);
       
       let totalPuntos = 0;
@@ -371,12 +373,16 @@ export default function AdminView({ activeSection, onSectionChange }) {
         const cedula = pr.usuario || pr.userCedula || pr.user_id || pr.user_cedula || '';
         const nombre = pr.nombre || pr.nombreJugador || pr.nombre_jugador || 'Jugador';
         const marcador = pr.marcadorCombinado || pr.marcador_combinado || `${pr.golesLocal}-${pr.golesVisitante}`;
+        const gl = pr.golesLocal !== undefined ? pr.golesLocal : parseInt(marcador.split('-')[0] || '0');
+        const gv = pr.golesVisitante !== undefined ? pr.golesVisitante : parseInt(marcador.split('-')[1] || '0');
         return {
           partidoId: pr.partidoId || pr.partido_id,
           marcadorCombinado: marcador,
           userCedula: cedula.toString().trim(),
           nombreJugador: nombre.toString().trim(),
-          estado: pr.estado || 'registrado'
+          estado: pr.estado || 'registrado',
+          golesLocal: isNaN(gl) ? 0 : gl,
+          golesVisitante: isNaN(gv) ? 0 : gv
         };
       });
 
@@ -831,6 +837,22 @@ export default function AdminView({ activeSection, onSectionChange }) {
             </button>
           </div>
 
+          {activeTab === 'fase-grupos' && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-brand-blue-900/20 border border-brand-blue-800/40 p-4 rounded-xl">
+              <span className="text-xs font-bold uppercase text-brand-blue-400">Filtrar por Grupo del Mundial:</span>
+              <select
+                value={selectedGroupFilter}
+                onChange={(e) => setSelectedGroupFilter(e.target.value)}
+                className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-4 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-gold-500 cursor-pointer"
+              >
+                <option value="Todos">Ver Todos los Grupos</option>
+                {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map(g => (
+                  <option key={g} value={g}>Grupo {g}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {loadingPartidos ? (
             <div className="py-12 text-center text-gray-500 flex items-center justify-center gap-2">
               <RefreshCw size={16} className="animate-spin text-gold-500" />
@@ -841,7 +863,9 @@ export default function AdminView({ activeSection, onSectionChange }) {
               {activeTab === 'fase-grupos' ? (
                 // Fase de Grupos organizada por Grupo A a L
                 <div className="space-y-6">
-                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map((grp) => {
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+                    .filter(grp => selectedGroupFilter === 'Todos' || selectedGroupFilter === grp)
+                    .map((grp) => {
                     const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.grupo === grp);
                     
                     return (
@@ -920,12 +944,17 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   <div key={partido.id} className="p-5 rounded-2xl bg-brand-blue-900/30 border border-brand-blue-800/50 space-y-4 hover:border-gold-500/20 transition-all">
                     {/* Encabezado del Partido */}
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-brand-blue-800/50">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {renderFlag(partido.equipo1)}
                         <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo1}</span>
                         <span className="text-xs font-black px-2 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
                         {renderFlag(partido.equipo2)}
                         <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo2}</span>
+                        {partido.golesRealLocal !== null && partido.golesRealVisitante !== null && (
+                          <span className="ml-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider">
+                            Oficial: {partido.golesRealLocal} - {partido.golesRealVisitante}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-400 font-bold bg-[#090d16] px-3 py-1 rounded-full border border-brand-blue-800">
                         {partido.fecha} | {partido.hora}
@@ -939,22 +968,64 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                         {pronosticosPartido.map((p, idx) => {
                           const hasOfficialResult = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
-                          const officialScoreString = hasOfficialResult ? `${partido.golesRealLocal}-${partido.golesRealVisitante}` : '';
-                          const isWinner = hasOfficialResult && p.marcadorCombinado === officialScoreString;
+                          
+                          let exacto = false;
+                          let ganador = false;
+
+                          if (hasOfficialResult) {
+                            const pronoLocal = p.golesLocal;
+                            const pronoVisitante = p.golesVisitante;
+                            const realLocal = partido.golesRealLocal;
+                            const realVisitante = partido.golesRealVisitante;
+
+                            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+                              exacto = true;
+                            } else {
+                              const isRealLocalWin = realLocal > realVisitante;
+                              const isRealVisitanteWin = realLocal < realVisitante;
+                              const isRealDraw = realLocal === realVisitante;
+                              
+                              const isPronoLocalWin = pronoLocal > pronoVisitante;
+                              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+                              const isPronoDraw = pronoLocal === pronoVisitante;
+                              
+                              if (
+                                (isRealLocalWin && isPronoLocalWin) ||
+                                (isRealVisitanteWin && isPronoVisitanteWin) ||
+                                (isRealDraw && isPronoDraw)
+                              ) {
+                                ganador = true;
+                              }
+                            }
+                          }
+
+                          let statusClasses = 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300';
+                          if (hasOfficialResult) {
+                            if (exacto) {
+                              statusClasses = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5 font-bold';
+                            } else if (ganador) {
+                              statusClasses = 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400 font-semibold';
+                            } else {
+                              statusClasses = 'bg-rose-500/10 border-rose-500/20 text-rose-300';
+                            }
+                          }
 
                           return (
                             <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-white truncate">{p.nombreJugador || p.usuario || 'Jugador'}</p>
-                                <p className="text-[10px] text-gray-500 font-semibold">CC @{p.userCedula || p.usuario || 'CC'}</p>
+                                <p className="text-[10px] text-gray-500 font-semibold flex items-center gap-1.5">
+                                  <span>CC @{p.userCedula || p.usuario || 'CC'}</span>
+                                  {hasOfficialResult && (
+                                    <span className={`text-[9px] font-bold px-1 rounded ${
+                                      exacto ? 'text-emerald-400 bg-emerald-400/10' : ganador ? 'text-yellow-400 bg-yellow-400/10' : 'text-rose-400 bg-rose-400/10'
+                                    }`}>
+                                      {exacto ? '+5 pts' : ganador ? '+3 pts' : '+0 pts'}
+                                    </span>
+                                  )}
+                                </p>
                               </div>
-                              <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${
-                                !hasOfficialResult 
-                                  ? 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300' 
-                                  : isWinner 
-                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5 animate-pulse' 
-                                    : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                              }`}>
+                              <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${statusClasses}`}>
                                 <span>{p.marcadorCombinado}</span>
                               </div>
                             </div>

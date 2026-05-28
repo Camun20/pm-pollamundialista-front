@@ -20,6 +20,7 @@ export default function UserView({ activeSection }) {
   
   // Datos
   const [partidos, setPartidos] = useState([]);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
   const [todosPronosticos, setTodosPronosticos] = useState([]);
   const [misPronosticos, setMisPronosticos] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -243,8 +244,9 @@ export default function UserView({ activeSection }) {
   const getLeaderboard = () => {
     // Si no cargó usuarios aún, incluir al menos al usuario actual para evitar pantalla vacía
     const userList = usuarios.length > 0 ? usuarios : [{ username: user.username, nombre: user.nombre, rol: user.rol }];
+    const playersOnly = userList.filter(u => u.rol !== 'admin');
     
-    const leaderboard = userList.map(u => {
+    const leaderboard = playersOnly.map(u => {
       const userPronos = todosPronosticos.filter(p => p.usuario === u.username);
       
       let totalPuntos = 0;
@@ -499,29 +501,75 @@ export default function UserView({ activeSection }) {
               {misPronosticos.map((pronostico) => {
                 const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
                 const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
-                const esGanador = tieneMarcadorReal && pronostico.golesLocal === partidoOriginal.golesRealLocal && pronostico.golesVisitante === partidoOriginal.golesRealVisitante;
+                
+                let exacto = false;
+                let ganador = false;
+                let puntos = 0;
+                
+                if (tieneMarcadorReal) {
+                  const pronoLocal = pronostico.golesLocal;
+                  const pronoVisitante = pronostico.golesVisitante;
+                  const realLocal = partidoOriginal.golesRealLocal;
+                  const realVisitante = partidoOriginal.golesRealVisitante;
+                  
+                  if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+                    exacto = true;
+                    puntos = 5;
+                  } else {
+                    const isRealLocalWin = realLocal > realVisitante;
+                    const isRealVisitanteWin = realLocal < realVisitante;
+                    const isRealDraw = realLocal === realVisitante;
+                    
+                    const isPronoLocalWin = pronoLocal > pronoVisitante;
+                    const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+                    const isPronoDraw = pronoLocal === pronoVisitante;
+                    
+                    if (
+                      (isRealLocalWin && isPronoLocalWin) ||
+                      (isRealVisitanteWin && isPronoVisitanteWin) ||
+                      (isRealDraw && isPronoDraw)
+                    ) {
+                      ganador = true;
+                      puntos = 3;
+                    } else {
+                      puntos = 0;
+                    }
+                  }
+                }
+
+                let statusText = 'Pronóstico Guardado';
+                let statusColorClass = 'text-gold-500';
+                let borderColorClass = 'border-l-gold-500';
+                let badgeColorClass = 'bg-gold-500/10 text-gold-500 border-gold-500/20';
+                
+                if (tieneMarcadorReal) {
+                  if (exacto) {
+                    statusText = '¡Acertaste al marcador! +5 puntos';
+                    statusColorClass = 'text-emerald-400 font-extrabold';
+                    borderColorClass = 'border-l-emerald-500 shadow-lg shadow-emerald-500/10';
+                    badgeColorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
+                  } else if (ganador) {
+                    statusText = 'Acertaste al ganador pero no al marcador +3 puntos';
+                    statusColorClass = 'text-yellow-400 font-bold';
+                    borderColorClass = 'border-l-yellow-500 shadow-lg shadow-yellow-500/5';
+                    badgeColorClass = 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20';
+                  } else {
+                    statusText = 'No acertaste nada +0 puntos';
+                    statusColorClass = 'text-rose-400 font-semibold';
+                    borderColorClass = 'border-l-rose-500 shadow-lg shadow-rose-500/5';
+                    badgeColorClass = 'bg-rose-500/10 text-rose-300 border-rose-500/20';
+                  }
+                }
 
                 return (
                   <div 
                     key={pronostico.id} 
-                    className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${
-                      tieneMarcadorReal
-                        ? esGanador 
-                          ? 'border-l-emerald-500 shadow-lg shadow-emerald-500/10' 
-                          : 'border-l-rose-500 shadow-lg shadow-rose-500/5'
-                        : 'border-l-gold-500'
-                    }`}
+                    className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${borderColorClass}`}
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          tieneMarcadorReal 
-                            ? esGanador 
-                              ? 'text-emerald-400' 
-                              : 'text-rose-400' 
-                            : 'text-gold-500'
-                        }`}>
-                          {tieneMarcadorReal ? (esGanador ? '¡Acertaste al marcador!' : 'Tu marcador falló') : 'Pronóstico Guardado'}
+                        <span className={`text-[10px] uppercase tracking-wider ${statusColorClass}`}>
+                          {statusText}
                         </span>
                       </div>
                       <p className="text-base font-semibold text-white flex items-center gap-1.5">
@@ -537,13 +585,7 @@ export default function UserView({ activeSection }) {
                         </p>
                       )}
                     </div>
-                    <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${
-                      tieneMarcadorReal
-                        ? esGanador 
-                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' 
-                          : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
-                        : 'bg-gold-500/10 text-gold-500 border-gold-500/20'
-                    }`}>
+                    <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
                       {pronostico.golesLocal} - {pronostico.golesVisitante}
                     </div>
                   </div>
@@ -578,7 +620,23 @@ export default function UserView({ activeSection }) {
           ) : activeSection === 'fase-grupos' ? (
             // Fase de Grupos organizada de Grupo A a L
             <div className="space-y-8">
-              {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map((grp) => {
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-brand-blue-900/20 border border-brand-blue-800/40 p-4 rounded-xl">
+                <span className="text-xs font-bold uppercase text-brand-blue-400">Filtrar por Grupo del Mundial:</span>
+                <select
+                  value={selectedGroupFilter}
+                  onChange={(e) => setSelectedGroupFilter(e.target.value)}
+                  className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-4 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-gold-500 cursor-pointer"
+                >
+                  <option value="Todos">Ver Todos los Grupos</option>
+                  {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'].map(g => (
+                    <option key={g} value={g}>Grupo {g}</option>
+                  ))}
+                </select>
+              </div>
+
+              {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
+                .filter(grp => selectedGroupFilter === 'Todos' || selectedGroupFilter === grp)
+                .map((grp) => {
                 const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.grupo === grp);
                 
                 return (
