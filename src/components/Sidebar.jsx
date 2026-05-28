@@ -89,13 +89,13 @@ export default function Sidebar({ activeSection, onSectionChange }) {
 
   return (
     <>
-      {/* ── Botón hamburguesa (Solo visible en móviles/tabletas < lg) ── */}
+      {/* ── Botón flotante de menú (FAB) (Solo visible en móviles/tabletas < lg, abajo a la derecha para no estorbar en el título) ── */}
       <button
         onClick={() => setOpen(true)}
         aria-label="Abrir menú"
-        className="lg:hidden fixed top-[18px] left-4 z-50 p-2 rounded-xl glass-card border border-gold-500/20 text-gold-500 hover:bg-gold-500/10 transition-all shadow-lg"
+        className="lg:hidden fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-r from-gold-600 to-gold-500 text-black shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-gold-400/20"
       >
-        <Menu size={20} />
+        <Menu size={22} />
       </button>
 
       {/* ── Overlay (Solo visible en móviles/tabletas < lg) ── */}
@@ -116,4 +116,5 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       </aside>
     </>
   );
+
 }

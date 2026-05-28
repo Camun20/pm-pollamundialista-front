@@ -12,8 +12,8 @@ export default function Header() {
     <header className="border-b border-brand-blue-800 bg-brand-blue-900/60 backdrop-blur-md sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
 
-        {/* LOGO EMPRESA → TÍTULO → LOGO MUNDIAL */}
-        <div className="flex items-center gap-2 sm:gap-4 pl-10 lg:pl-0">
+        {/* LOGO EMPRESA → TÍTULO → LOGO MUNDIAL (pl-0 en el login, pl-10 en móvil con sesión para evitar el botón FAB de menú) */}
+        <div className={`flex items-center gap-2 sm:gap-4 transition-all duration-300 ${user ? 'pl-10 lg:pl-0' : 'pl-0'}`}>
           {/* 1. Logo Empresa */}
           {hasLogoEmpresa ? (
             <img
@@ -26,13 +26,14 @@ export default function Header() {
 
           {/* 2. Título */}
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-black tracking-wider gold-gradient-text m-0 p-0 leading-none truncate sm:whitespace-normal">
+            <h1 className="text-sm xs:text-base sm:text-2xl font-black tracking-wider gold-gradient-text m-0 p-0 leading-none sm:whitespace-normal">
               POLLA MUNDIALISTA ATIEMPO
             </h1>
             <p className="text-[9px] sm:text-[10px] text-brand-blue-600 font-bold uppercase tracking-widest mt-0.5">
               Mundial 2026
             </p>
           </div>
+
 
           {/* 3. Logo Mundial */}
           {hasLogoMundial ? (

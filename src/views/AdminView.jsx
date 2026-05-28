@@ -550,78 +550,79 @@ export default function AdminView({ activeSection, onSectionChange }) {
             ) : partidos.length === 0 ? (
               <div className="py-12 text-center text-gray-500">No hay partidos programados en este momento.</div>
             ) : (
-              <div className="space-y-4">
-                {partidos.map((partido) => {
-                  const score = realScores[partido.id] || { local: '', visitante: '' };
-                  const isSaving = savingScoreId === partido.id;
+              <div className="overflow-x-auto w-full pb-2">
 
-                  return (
-                    <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col lg:flex-row justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+                <div className="space-y-4 min-w-[650px]">
+                  {partidos.map((partido) => {
+                    const score = realScores[partido.id] || { local: '', visitante: '' };
+                    const isSaving = savingScoreId === partido.id;
 
-                      
-                      {/* Equipos */}
-                      <div className="flex items-center justify-center gap-4 flex-1 w-full lg:w-auto">
-                        <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
-                          <span className="truncate max-w-[120px]">{partido.equipo1}</span>
-                          {renderFlag(partido.equipo1)}
+                    return (
+                      <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+                        
+                        {/* Equipos */}
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
+                            <span className="truncate max-w-[120px]">{partido.equipo1}</span>
+                            {renderFlag(partido.equipo1)}
+                          </div>
+                          <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
+                          <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
+                            {renderFlag(partido.equipo2)}
+                            <span className="truncate max-w-[120px]">{partido.equipo2}</span>
+                          </div>
                         </div>
-                        <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400">VS</div>
-                        <div className="flex items-center gap-2 flex-1 justify-start font-bold text-sm text-white">
-                          {renderFlag(partido.equipo2)}
-                          <span className="truncate max-w-[120px]">{partido.equipo2}</span>
+
+                        {/* Marcador Real */}
+                        <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 shrink-0 justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={score.local}
+                            onChange={(e) => setRealScores({
+                              ...realScores,
+                              [partido.id]: { ...score, local: e.target.value }
+                            })}
+                            placeholder="-"
+                            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+                          />
+                          <span className="text-gray-600 font-bold">:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={score.visitante}
+                            onChange={(e) => setRealScores({
+                              ...realScores,
+                              [partido.id]: { ...score, visitante: e.target.value }
+                            })}
+                            placeholder="-"
+                            className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
+                          />
+                          <button
+                            onClick={() => handleSaveRealScore(partido.id)}
+                            disabled={isSaving}
+                            className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                            title="Guardar marcador oficial"
+                          >
+                            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                          </button>
                         </div>
-                      </div>
 
-                      {/* Marcador Real */}
-                      <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 w-full lg:w-auto justify-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={score.local}
-                          onChange={(e) => setRealScores({
-                            ...realScores,
-                            [partido.id]: { ...score, local: e.target.value }
-                          })}
-                          placeholder="-"
-                          className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-                        />
-                        <span className="text-gray-600 font-bold">:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={score.visitante}
-                          onChange={(e) => setRealScores({
-                            ...realScores,
-                            [partido.id]: { ...score, visitante: e.target.value }
-                          })}
-                          placeholder="-"
-                          className="w-10 bg-brand-blue-900 border border-brand-blue-800 text-white font-bold text-center rounded py-1 px-0.5 focus:outline-none focus:border-gold-500"
-                        />
-                        <button
-                          onClick={() => handleSaveRealScore(partido.id)}
-                          disabled={isSaving}
-                          className="ml-2 p-2 rounded-lg bg-gold-500 text-black font-bold hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
-                          title="Guardar marcador oficial"
-                        >
-                          {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                        </button>
-                      </div>
-
-                      {/* Info adicional */}
-                      <div className="text-center lg:text-right shrink-0 w-full lg:w-auto">
-                        <div className="text-xs font-bold text-gray-400 flex items-center justify-center lg:justify-end gap-1">
-                          <Clock size={12} className="text-gold-500" />
-                          <span>{partido.fecha} | {partido.hora}</span>
+                        {/* Info adicional */}
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-bold text-gray-400 flex items-center justify-end gap-1">
+                            <Clock size={12} className="text-gold-500" />
+                            <span>{partido.fecha} | {partido.hora}</span>
+                          </div>
+                          {partido.golesRealLocal !== null && (
+                            <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider text-right">Resultado Registrado</div>
+                          )}
                         </div>
-                        {partido.golesRealLocal !== null && (
-                          <div className="text-[10px] text-emerald-400 font-bold mt-1 uppercase tracking-wider">Resultado Registrado</div>
-                        )}
+
                       </div>
-
-                    </div>
-                  );
-
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
