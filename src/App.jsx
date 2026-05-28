@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { apiRequest } from './services/api';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import LoginView from './views/LoginView';
@@ -129,7 +130,7 @@ function MainAppContent() {
         </main>
 
         <footer className="border-t border-brand-blue-800 bg-brand-blue-900/20 py-6 text-center text-xs text-gray-500">
-          <p>Polla Mundialista Atiempo v1.0.0 © 2026 - Conexión Serverless AWS Activa</p>
+          <p>Polla Mundialista Atiempo v1.0.0 © 2026</p>
         </footer>
       </div>
 
