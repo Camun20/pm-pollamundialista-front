@@ -47,15 +47,16 @@ export default function Header() {
           )}
         </div>
 
-        {/* USUARIO ACTIVO */}
+        {/* USUARIO ACTIVO (Oculto en móvil para dejar espacio al título) */}
         {user && (
-          <div className="text-right shrink-0">
+          <div className="hidden sm:block text-right shrink-0">
             <p className="text-sm font-semibold text-white leading-tight">{user.nombre}</p>
             <p className="text-[10px] font-bold text-gold-500 uppercase tracking-widest">
               {user.rol === 'admin' ? 'Administrador' : 'Jugador'}
             </p>
           </div>
         )}
+
       </div>
     </header>
   );

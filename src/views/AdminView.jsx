@@ -556,10 +556,11 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   const isSaving = savingScoreId === partido.id;
 
                   return (
-                    <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col md:flex-row justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+                    <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col lg:flex-row justify-between items-center gap-4 hover:border-gold-500/20 transition-all">
+
                       
                       {/* Equipos */}
-                      <div className="flex items-center justify-center gap-4 flex-1 w-full md:w-auto">
+                      <div className="flex items-center justify-center gap-4 flex-1 w-full lg:w-auto">
                         <div className="flex items-center gap-2 flex-1 justify-end text-right font-bold text-sm text-white">
                           <span className="truncate max-w-[120px]">{partido.equipo1}</span>
                           {renderFlag(partido.equipo1)}
@@ -572,7 +573,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       </div>
 
                       {/* Marcador Real */}
-                      <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 w-full md:w-auto justify-center">
+                      <div className="flex items-center gap-2 bg-[#090d16] p-2 rounded-xl border border-brand-blue-800 w-full lg:w-auto justify-center">
                         <input
                           type="number"
                           min="0"
@@ -607,8 +608,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       </div>
 
                       {/* Info adicional */}
-                      <div className="text-center md:text-right shrink-0">
-                        <div className="text-xs font-bold text-gray-400 flex items-center justify-center md:justify-end gap-1">
+                      <div className="text-center lg:text-right shrink-0 w-full lg:w-auto">
+                        <div className="text-xs font-bold text-gray-400 flex items-center justify-center lg:justify-end gap-1">
                           <Clock size={12} className="text-gold-500" />
                           <span>{partido.fecha} | {partido.hora}</span>
                         </div>
@@ -619,6 +620,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
 
                     </div>
                   );
+
                 })}
               </div>
             )}

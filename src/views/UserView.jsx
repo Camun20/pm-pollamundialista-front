@@ -78,6 +78,15 @@ export default function UserView({ activeSection }) {
     }
   };
 
+  // Efecto para actualizar el temporizador de apuestas en tiempo real sin recargar la página (cada 30 segundos)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Forzar actualización de estados refrescando los partidos localmente
+      setPartidos(prev => [...prev]);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     loadData();
   }, [user.username]);
@@ -143,11 +152,20 @@ export default function UserView({ activeSection }) {
       await apiRequest('/pronosticos', {
         method: 'POST',
         body: JSON.stringify({
+          // Formato nuevo de backend (limpio y consistente)
           usuario: user.username,
-          nombre: user.nombre, // Enviar el nombre real del usuario también para sincronización
+          nombre: user.nombre,
           partidoId,
           golesLocal: parseInt(seleccion.golesLocal),
-          golesVisitante: parseInt(seleccion.golesVisitante)
+          golesVisitante: parseInt(seleccion.golesVisitante),
+          
+          // Retrocompatibilidad total con Lambda antigua de AWS
+          partido_id: partidoId,
+          marcadorCombinado: `${seleccion.golesLocal}-${seleccion.golesVisitante}`,
+          marcador_combinado: `${seleccion.golesLocal}-${seleccion.golesVisitante}`,
+          userCedula: user.username,
+          user_id: user.username,
+          nombreJugador: user.nombre
         })
       });
 

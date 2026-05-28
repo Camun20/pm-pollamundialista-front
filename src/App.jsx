@@ -12,6 +12,14 @@ function MainAppContent() {
   const { user, loading, updateUser } = useAuth();
   const [activeSection, setActiveSection] = useState('partidos');
 
+  // Sincronizar la sección por defecto según el rol al iniciar sesión
+  useEffect(() => {
+    if (user) {
+      const initialSection = user.rol === 'admin' ? 'partidos' : 'mis-pronosticos';
+      setActiveSection(initialSection);
+    }
+  }, [user?.username, user?.rol]);
+
   // Control de protección de rutas y redirección al login
   useEffect(() => {
     const handleRouteGuard = () => {
@@ -80,6 +88,9 @@ function MainAppContent() {
       ...user,
       mustChangePassword: false
     });
+
+    // Redirigir de inmediato a la sección de Mis Pronósticos
+    setActiveSection('mis-pronosticos');
   };
 
   if (loading) {

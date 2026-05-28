@@ -37,24 +37,25 @@ export default function LoginView() {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto mt-16 px-4 animate-fade-in">
-      <div className="glass-card rounded-3xl p-8 border border-gold-500/20 text-center relative overflow-hidden">
+    <div className="max-w-md w-full mx-auto mt-4 sm:mt-12 px-4 animate-fade-in">
+      <div className="glass-card rounded-3xl p-6 sm:p-8 border border-gold-500/20 text-center relative overflow-hidden">
         {/* Glow effect */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-brand-blue-700/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex justify-center mb-4">
-          <div className="h-16 w-16 rounded-full bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500">
-            <Trophy size={32} />
+        <div className="flex justify-center mb-3">
+          <div className="h-14 w-14 rounded-full bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500">
+            <Trophy size={28} />
           </div>
         </div>
         
-        <h2 className="text-3xl font-extrabold gold-gradient-text tracking-wide mb-1">
+        <h2 className="text-2xl sm:text-3xl font-extrabold gold-gradient-text tracking-wide mb-1">
           ¡Ingresa a la Polla!
         </h2>
-        <p className="text-sm text-gray-400 mb-6">
+        <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">
           Pronostica con tus amigos y demuestra quién es el rey del fútbol.
         </p>
+
 
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-semibold animate-pulse text-left flex items-start gap-2">

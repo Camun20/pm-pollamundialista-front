@@ -28,15 +28,15 @@ export default function Sidebar({ activeSection, onSectionChange }) {
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#0d1b2a] text-gray-100">
-      {/* Cabecera del panel */}
-      <div className="flex items-center justify-between px-5 pt-6 pb-4 border-b border-brand-blue-800">
+      {/* Cabecera del panel (Más compacta en móviles) */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-brand-blue-800 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-gold-500/15 border border-gold-500/30 flex items-center justify-center">
-            <UserCircle2 size={20} className="text-gold-500" />
+          <div className="h-8 w-8 rounded-full bg-gold-500/15 border border-gold-500/30 flex items-center justify-center">
+            <UserCircle2 size={18} className="text-gold-500" />
           </div>
           <div>
             <p className="text-sm font-bold text-white leading-tight">{user?.nombre}</p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gold-500">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-gold-500">
               {user?.rol === 'admin' ? 'Administrador' : 'Jugador'}
             </p>
           </div>
@@ -51,15 +51,15 @@ export default function Sidebar({ activeSection, onSectionChange }) {
         </button>
       </div>
 
-      {/* Navegación */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      {/* Navegación (Más compacta en móviles) */}
+      <nav className="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
         {menu.map(({ key, label, Icon }) => {
           const isActive = activeSection === key;
           return (
             <button
               key={key}
               onClick={() => handleSelect(key)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm font-semibold transition-all group ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left text-sm font-semibold transition-all group ${
                 isActive
                   ? 'bg-gold-500/15 text-gold-400 border border-gold-500/20'
                   : 'text-gray-300 hover:bg-brand-blue-800/60 hover:text-white border border-transparent'
@@ -73,11 +73,11 @@ export default function Sidebar({ activeSection, onSectionChange }) {
         })}
       </nav>
 
-      {/* Pie: botón cerrar sesión */}
-      <div className="px-3 pb-6 pt-3 border-t border-brand-blue-800">
+      {/* Pie: botón cerrar sesión (Menos paddings en móviles) */}
+      <div className="px-3 pb-4 pt-2 border-t border-brand-blue-800 shrink-0">
         <button
           onClick={() => { setOpen(false); logout(); }}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
         >
           <LogOut size={18} />
           <span>Cerrar Sesión</span>
@@ -85,6 +85,7 @@ export default function Sidebar({ activeSection, onSectionChange }) {
       </div>
     </div>
   );
+
 
   return (
     <>
