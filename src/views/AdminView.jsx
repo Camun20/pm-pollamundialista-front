@@ -458,16 +458,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
       });
 
 
-      const localList = getLocalPronosticos();
-      const combined = [...localList];
-      pronosticosList.forEach(pr => {
-        if (!combined.some(c => c.partidoId === pr.partidoId && c.userCedula === pr.userCedula)) {
-          combined.push(pr);
-        }
-      });
-
-      setPronosticos(combined);
-      localStorage.setItem('pm_local_pronosticos', JSON.stringify(combined));
+      setPronosticos(pronosticosList);
+      localStorage.setItem('pm_local_pronosticos', JSON.stringify(pronosticosList));
     } catch (err) {
       console.warn("Fallo al cargar pronósticos de AWS. Usando almacenamiento local fallback.", err);
       setPronosticos(getLocalPronosticos());
@@ -497,24 +489,16 @@ export default function AdminView({ activeSection, onSectionChange }) {
       const data = await apiRequest('/usuarios');
       const list = Array.isArray(data) ? data : [];
       
-      const localList = getLocalUsuarios();
-      const combinedMap = new Map();
-      localList.forEach(u => combinedMap.set(u.username, u));
-      list.forEach(u => {
-        if (!combinedMap.has(u.username)) {
-          combinedMap.set(u.username, {
-            username: u.username,
-            nombre: u.nombre,
-            rol: u.rol || 'user',
-            contrasena: u.contrasena || '123',
-            mustChangePassword: u.mustChangePassword !== undefined ? u.mustChangePassword : true
-          });
-        }
-      });
+      const formattedList = list.map(u => ({
+        username: u.username,
+        nombre: u.nombre,
+        rol: u.rol || 'user',
+        contrasena: u.contrasena || '123',
+        mustChangePassword: u.mustChangePassword !== undefined ? u.mustChangePassword : true
+      }));
 
-      const finalList = Array.from(combinedMap.values());
-      setUsuarios(finalList);
-      localStorage.setItem('pm_local_usuarios', JSON.stringify(finalList));
+      setUsuarios(formattedList);
+      localStorage.setItem('pm_local_usuarios', JSON.stringify(formattedList));
     } catch (err) {
       console.warn("Fallo al conectar con AWS para /usuarios. Usando almacenamiento local fallback.", err);
       const localList = getLocalUsuarios();

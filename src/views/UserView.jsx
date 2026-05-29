@@ -817,7 +817,6 @@ export default function UserView({ activeSection }) {
                 <tr className="border-b border-brand-blue-800 text-brand-blue-600 text-xs font-bold uppercase tracking-wider">
                   <th className="py-3 px-4">Posición</th>
                   <th className="py-3 px-4">Jugador</th>
-                  <th className="py-3 px-4">Cédula</th>
                   <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
                   <th className="py-3 px-4 text-center">Ganador/Emp (3 pts)</th>
                   <th className="py-3 px-4 text-right">Puntos Totales</th>
@@ -848,7 +847,6 @@ export default function UserView({ activeSection }) {
                       <td className="py-3 px-4 text-white font-bold">
                         {row.nombre} {isCurrentUser && <span className="text-[9px] uppercase tracking-wider font-extrabold text-gold-500 bg-gold-500/10 px-1.5 py-0.5 rounded border border-gold-500/20 ml-2">Tú</span>}
                       </td>
-                      <td className="py-3 px-4 text-gray-500">@{row.username}</td>
                       <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
                       <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
                       <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
