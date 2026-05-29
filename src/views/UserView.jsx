@@ -594,8 +594,10 @@ export default function UserView({ activeSection }) {
         )}
 
         {yaPronosticado && pronosticoExistente && pronosticoExistente.golesLocal === pronosticoExistente.golesVisitante && partido.fase !== 'Fase de Grupos' && (
-          <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold">
-            Pronosticaste que clasifica: <span className="underline font-bold text-white ml-1">{pronosticoExistente.ganadorPenaltis}</span>
+          <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold flex items-center justify-center gap-1">
+            <span>Pronosticaste que clasifica:</span>
+            {renderFlag(pronosticoExistente.ganadorPenaltis)}
+            <span className="underline font-bold text-white">{pronosticoExistente.ganadorPenaltis || 'No seleccionado'}</span>
           </div>
         )}
 
@@ -809,13 +811,18 @@ export default function UserView({ activeSection }) {
                                   <p className="text-xs text-gray-400 mt-1">
                                     Resultado real: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
                                     {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
-                                      <span className="ml-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">({partidoOriginal.ganadorPenaltis} clasifica)</span>
+                                      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">
+                                        {renderFlag(partidoOriginal.ganadorPenaltis)}
+                                        <span>{partidoOriginal.ganadorPenaltis} clasifica</span>
+                                      </span>
                                     )}
                                   </p>
                                 )}
-                                {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && pronostico.ganadorPenaltis && (
-                                  <p className="text-[10px] text-gold-500 font-semibold mt-1">
-                                    Pronosticaste que clasifica: <span className="text-white underline">{pronostico.ganadorPenaltis}</span>
+                                {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && (
+                                  <p className="text-[10px] text-gold-500 font-semibold mt-1 flex items-center gap-1.5">
+                                    <span>Pronosticaste que clasifica:</span>
+                                    {renderFlag(pronostico.ganadorPenaltis)}
+                                    <span className="text-white underline">{pronostico.ganadorPenaltis || 'No seleccionado'}</span>
                                   </p>
                                 )}
                               </div>
@@ -842,7 +849,14 @@ export default function UserView({ activeSection }) {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h2 className="text-2xl font-bold text-white tracking-wide">{getPhaseName(activeSection)}</h2>
-              <p className="text-sm text-gray-400">Pronostica los marcadores de los partidos en juego. Gana 5 puntos por marcador exacto y 3 por acertar ganador/empate.</p>
+              <div className="text-sm text-gray-400 mt-1">
+                Pronostica los marcadores de los partidos en juego. Gana 5 puntos por marcador exacto y 3 por acertar ganador/empate.
+                {activeSection !== 'fase-grupos' && (
+                  <p className="mt-2 text-gold-500 font-medium">
+                    ⚠️ En fases eliminatorias, si pronosticas un empate, debes elegir quién clasifica por penaltis. Si aciertas el equipo clasificado y el marcador exacto, obtienes 5 puntos. Si solo aciertas el clasificado, obtienes 3 puntos.
+                  </p>
+                )}
+              </div>
             </div>
             <button 
               onClick={loadData}

@@ -1142,11 +1142,13 @@ export default function AdminView({ activeSection, onSectionChange }) {
                                     </span>
                                   )}
                                 </p>
-                                {partido.fase !== 'Fase de Grupos' && p.golesLocal === p.golesVisitante && p.ganadorPenaltis && (
-                                  <p className="text-[9px] text-gold-500/80 font-bold mt-0.5">
-                                    Clasifica: {p.ganadorPenaltis}
-                                  </p>
-                                )}
+                                {partido.fase !== 'Fase de Grupos' && p.golesLocal === p.golesVisitante && (
+                                   <p className="text-[9px] text-gold-500/80 font-bold mt-0.5 flex items-center gap-1">
+                                     <span>Clasifica:</span>
+                                     {renderFlag(p.ganadorPenaltis)}
+                                     <span className="underline">{p.ganadorPenaltis || 'No seleccionado'}</span>
+                                   </p>
+                                 )}
                               </div>
                               <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${statusClasses}`}>
                                 <span>{p.marcadorCombinado}</span>
