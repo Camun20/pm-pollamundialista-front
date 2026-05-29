@@ -12,15 +12,18 @@ import {
   CheckCircle, 
   Lock, 
   Unlock, 
-  UserSquare2 
+  UserSquare2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function UserView({ activeSection }) {
-  const { user } = useAuth();
+  const { user, login, updateUser } = useAuth();
   
   // Datos
   const [partidos, setPartidos] = useState([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
+  const [faseFilterUser, setFaseFilterUser] = useState('Todos');
   const [todosPronosticos, setTodosPronosticos] = useState([]);
   const [misPronosticos, setMisPronosticos] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -35,6 +38,17 @@ export default function UserView({ activeSection }) {
   const [apuestaLoading, setApuestaLoading] = useState({});
   const [apuestaError, setApuestaError] = useState({});
   const [apuestaSuccess, setApuestaSuccess] = useState({});
+
+  // Estados para Cambiar Contraseña
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -238,6 +252,65 @@ export default function UserView({ activeSection }) {
       }));
     } finally {
       setApuestaLoading(prev => ({ ...prev, [partidoId]: false }));
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Todos los campos son obligatorios.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Las nuevas contraseñas no coinciden.');
+      return;
+    }
+
+    if (!/^\d+$/.test(newPassword)) {
+      setPasswordError('La nueva contraseña debe contener solo números.');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      // 1. Validar contraseña actual
+      await login(user.username, currentPassword);
+
+      // 2. Actualizar el usuario
+      const updatedUserObj = {
+        ...user,
+        contrasena: newPassword,
+        mustChangePassword: false
+      };
+
+      await apiRequest(`/usuarios/${user.username}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedUserObj)
+      });
+
+      // Actualizar contexto y localstorage
+      updateUser(updatedUserObj);
+
+      // Sincronizar cache local si existe
+      const localUsers = JSON.parse(localStorage.getItem('pm_local_usuarios') || '[]');
+      const newLocalUsers = localUsers.map(u => u.username === user.username ? updatedUserObj : u);
+      localStorage.setItem('pm_local_usuarios', JSON.stringify(newLocalUsers));
+
+      setPasswordSuccess('Contraseña cambiada exitosamente.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(''), 4000);
+
+    } catch (err) {
+      setPasswordError(err.message || 'La contraseña actual es incorrecta o hubo un error.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -588,127 +661,163 @@ export default function UserView({ activeSection }) {
               Aún no has registrado ningún pronóstico. ¡Utiliza la sección de abajo para apostar!
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {misPronosticos.map((pronostico) => {
-                const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
-                const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
-                let exacto = false;
-                let ganador = false;
-                let puntos = 0;
-                
-                if (tieneMarcadorReal) {
-                  const pronoLocal = pronostico.golesLocal;
-                  const pronoVisitante = pronostico.golesVisitante;
-                  const realLocal = partidoOriginal.golesRealLocal;
-                  const realVisitante = partidoOriginal.golesRealVisitante;
-                  const isRealDraw = realLocal === realVisitante;
-                  const isPronoDraw = pronoLocal === pronoVisitante;
-                  const isKnockout = partidoOriginal.fase !== 'Fase de Grupos';
+            <div className="space-y-6">
+              {/* Filtro de Fases para Mis Pronósticos */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-brand-blue-900/20 border border-brand-blue-800/40 p-4 rounded-xl">
+                <span className="text-xs font-bold uppercase text-brand-blue-400">Filtrar por Fase del Torneo:</span>
+                <select
+                  value={faseFilterUser}
+                  onChange={(e) => setFaseFilterUser(e.target.value)}
+                  className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-4 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-gold-500 cursor-pointer"
+                >
+                  <option value="Todos">Ver Todas las Fases</option>
+                  <option value="Fase de Grupos">Fase de Grupos</option>
+                  <option value="Dieciseisavos">Dieciseisavos</option>
+                  <option value="Octavos">Octavos de Final</option>
+                  <option value="Cuartos">Cuartos de Final</option>
+                  <option value="Semifinal">Semifinal</option>
+                  <option value="Final">Final</option>
+                </select>
+              </div>
 
-                  if (isRealDraw && isKnockout) {
-                    const realClasifica = partidoOriginal.ganadorPenaltis;
-                    const pronoClasifica = pronostico.ganadorPenaltis;
-                    const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
-                    const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Final']
+                .filter(fase => faseFilterUser === 'Todos' || faseFilterUser === fase)
+                .map((fase) => {
+                  const pronosFase = misPronosticos.filter(pr => {
+                    const match = partidos.find(p => p.id === pr.partidoId) || {};
+                    return match.fase === fase;
+                  });
 
-                    if (acertoMarcadorExacto && acertoClasificado) {
-                      exacto = true;
-                      puntos = 5;
-                    } else if (acertoClasificado) {
-                      ganador = true;
-                      puntos = 3;
-                    } else {
-                      puntos = 0;
-                    }
-                  } else {
-                    if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-                      exacto = true;
-                      puntos = 5;
-                    } else {
-                      const isRealLocalWin = realLocal > realVisitante;
-                      const isRealVisitanteWin = realLocal < realVisitante;
-                      
-                      const isPronoLocalWin = pronoLocal > pronoVisitante;
-                      const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-                      
-                      if (
-                        (isRealLocalWin && isPronoLocalWin) ||
-                        (isRealVisitanteWin && isPronoVisitanteWin) ||
-                        (isRealDraw && isPronoDraw)
-                      ) {
-                        ganador = true;
-                        puntos = 3;
-                      } else {
-                        puntos = 0;
-                      }
-                    }
-                  }
-                }
+                  if (pronosFase.length === 0) return null;
 
-                let statusText = 'Pronóstico Guardado';
-                let statusColorClass = 'text-gold-500';
-                let borderColorClass = 'border-l-gold-500';
-                let badgeColorClass = 'bg-gold-500/10 text-gold-500 border-gold-500/20';
-                
-                if (tieneMarcadorReal) {
-                  if (exacto) {
-                    statusText = '¡Acertaste al marcador! +5 puntos';
-                    statusColorClass = 'text-emerald-400 font-extrabold';
-                    borderColorClass = 'border-l-emerald-500 shadow-lg shadow-emerald-500/10';
-                    badgeColorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
-                  } else if (ganador) {
-                    statusText = 'Acertaste al ganador pero no al marcador +3 puntos';
-                    statusColorClass = 'text-yellow-400 font-bold';
-                    borderColorClass = 'border-l-yellow-500 shadow-lg shadow-yellow-500/5';
-                    badgeColorClass = 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20';
-                  } else {
-                    statusText = 'No acertaste nada +0 puntos';
-                    statusColorClass = 'text-rose-400 font-semibold';
-                    borderColorClass = 'border-l-rose-500 shadow-lg shadow-rose-500/5';
-                    badgeColorClass = 'bg-rose-500/10 text-rose-300 border-rose-500/20';
-                  }
-                }
+                  return (
+                    <div key={fase} className="p-5 rounded-2xl bg-brand-blue-900/10 border border-brand-blue-800/40 space-y-4">
+                      <h3 className="text-sm font-black text-gold-500 tracking-wider uppercase border-b border-brand-blue-800/40 pb-2">{fase}</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {pronosFase.map((pronostico) => {
+                          const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
+                          const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
+                          let exacto = false;
+                          let ganador = false;
+                          let puntos = 0;
+                          
+                          if (tieneMarcadorReal) {
+                            const pronoLocal = pronostico.golesLocal;
+                            const pronoVisitante = pronostico.golesVisitante;
+                            const realLocal = partidoOriginal.golesRealLocal;
+                            const realVisitante = partidoOriginal.golesRealVisitante;
+                            const isRealDraw = realLocal === realVisitante;
+                            const isPronoDraw = pronoLocal === pronoVisitante;
+                            const isKnockout = partidoOriginal.fase !== 'Fase de Grupos';
 
-                return (
-                  <div 
-                    key={pronostico.id} 
-                    className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${borderColorClass}`}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] uppercase tracking-wider ${statusColorClass}`}>
-                          {statusText}
-                        </span>
+                            if (isRealDraw && isKnockout) {
+                              const realClasifica = partidoOriginal.ganadorPenaltis;
+                              const pronoClasifica = pronostico.ganadorPenaltis;
+                              const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
+                              const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
+
+                              if (acertoMarcadorExacto && acertoClasificado) {
+                                exacto = true;
+                                puntos = 5;
+                              } else if (acertoClasificado) {
+                                ganador = true;
+                                puntos = 3;
+                              } else {
+                                puntos = 0;
+                              }
+                            } else {
+                              if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
+                                exacto = true;
+                                puntos = 5;
+                              } else {
+                                const isRealLocalWin = realLocal > realVisitante;
+                                const isRealVisitanteWin = realLocal < realVisitante;
+                                
+                                const isPronoLocalWin = pronoLocal > pronoVisitante;
+                                const isPronoVisitanteWin = pronoLocal < pronoVisitante;
+                                
+                                if (
+                                  (isRealLocalWin && isPronoLocalWin) ||
+                                  (isRealVisitanteWin && isPronoVisitanteWin) ||
+                                  (isRealDraw && isPronoDraw)
+                                ) {
+                                  ganador = true;
+                                  puntos = 3;
+                                } else {
+                                  puntos = 0;
+                                }
+                              }
+                            }
+                          }
+
+                          let statusText = 'Pronóstico Guardado';
+                          let statusColorClass = 'text-gold-500';
+                          let borderColorClass = 'border-l-gold-500';
+                          let badgeColorClass = 'bg-gold-500/10 text-gold-500 border-gold-500/20';
+                          
+                          if (tieneMarcadorReal) {
+                            if (exacto) {
+                              statusText = '¡Acertaste al marcador! +5 puntos';
+                              statusColorClass = 'text-emerald-400 font-extrabold';
+                              borderColorClass = 'border-l-emerald-500 shadow-lg shadow-emerald-500/10';
+                              badgeColorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
+                            } else if (ganador) {
+                              statusText = 'Acertaste al ganador pero no al marcador +3 puntos';
+                              statusColorClass = 'text-yellow-400 font-bold';
+                              borderColorClass = 'border-l-yellow-500 shadow-lg shadow-yellow-500/5';
+                              badgeColorClass = 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20';
+                            } else {
+                              statusText = 'No acertaste nada +0 puntos';
+                              statusColorClass = 'text-rose-400 font-semibold';
+                              borderColorClass = 'border-l-rose-500 shadow-lg shadow-rose-500/5';
+                              badgeColorClass = 'bg-rose-500/10 text-rose-300 border-rose-500/20';
+                            }
+                          }
+
+                          return (
+                            <div 
+                              key={pronostico.id} 
+                              className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${borderColorClass}`}
+                            >
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`text-[10px] uppercase tracking-wider ${statusColorClass}`}>
+                                    {statusText}
+                                  </span>
+                                </div>
+                                <p className="text-base font-semibold text-white flex items-center gap-1.5">
+                                  {renderFlag(partidoOriginal.equipo1)}
+                                  <span>{partidoOriginal.equipo1 || 'Local'}</span>
+                                  <span className="text-xs text-gold-500 font-bold">vs</span>
+                                  {renderFlag(partidoOriginal.equipo2)}
+                                  <span>{partidoOriginal.equipo2 || 'Visitante'}</span>
+                                </p>
+                                {tieneMarcadorReal && (
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Resultado real: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
+                                    {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
+                                      <span className="ml-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">({partidoOriginal.ganadorPenaltis} clasifica)</span>
+                                    )}
+                                  </p>
+                                )}
+                                {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && pronostico.ganadorPenaltis && (
+                                  <p className="text-[10px] text-gold-500 font-semibold mt-1">
+                                    Pronosticaste que clasifica: <span className="text-white underline">{pronostico.ganadorPenaltis}</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
+                                  {pronostico.golesLocal} - {pronostico.golesVisitante}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <p className="text-base font-semibold text-white flex items-center gap-1.5">
-                        {renderFlag(partidoOriginal.equipo1)}
-                        <span>{partidoOriginal.equipo1 || 'Local'}</span>
-                        <span className="text-xs text-gold-500 font-bold">vs</span>
-                        {renderFlag(partidoOriginal.equipo2)}
-                        <span>{partidoOriginal.equipo2 || 'Visitante'}</span>
-                      </p>
-                      {tieneMarcadorReal && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Resultado real: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
-                          {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
-                            <span className="ml-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">({partidoOriginal.ganadorPenaltis} clasifica)</span>
-                          )}
-                        </p>
-                      )}
-                      {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && pronostico.ganadorPenaltis && (
-                        <p className="text-[10px] text-gold-500 font-semibold mt-1">
-                          Pronosticaste que clasifica: <span className="text-white underline">{pronostico.ganadorPenaltis}</span>
-                        </p>
-                      )}
                     </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
-                        {pronostico.golesLocal} - {pronostico.golesVisitante}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           )}
         </div>
@@ -856,6 +965,106 @@ export default function UserView({ activeSection }) {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* SECCIÓN 4: CAMBIAR CONTRASEÑA */}
+      {activeSection === 'cambiar-password' && (
+        <div className="max-w-md mx-auto glass-card rounded-2xl p-6 md:p-8 border border-gold-500/10 space-y-6">
+          <div className="text-center">
+            <h3 className="text-xl font-black gold-gradient-text tracking-wide mb-2">Cambiar Contraseña</h3>
+            <p className="text-xs text-gray-400">Actualiza tu contraseña. Usa solo números.</p>
+          </div>
+
+          {passwordSuccess && (
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle size={14} />
+              <span>{passwordSuccess}</span>
+            </div>
+          )}
+          {passwordError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
+              <AlertCircle size={14} />
+              <span>{passwordError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Contraseña Actual</label>
+              <div className="relative">
+                <input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Tu contraseña actual"
+                  className="w-full bg-[#090d16] border border-gold-500/10 text-white rounded-xl py-3 pl-4 pr-10 text-sm focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/50 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gold-500 transition-colors"
+                >
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Nueva Contraseña (Solo números)</label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) setNewPassword(val);
+                  }}
+                  placeholder="Ej: 12345"
+                  className="w-full bg-[#090d16] border border-gold-500/10 text-white rounded-xl py-3 pl-4 pr-10 text-sm focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/50 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gold-500 transition-colors"
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-brand-blue-600 mb-1">Confirmar Nueva Contraseña</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) setConfirmPassword(val);
+                  }}
+                  placeholder="Repite la nueva contraseña"
+                  className="w-full bg-[#090d16] border border-gold-500/10 text-white rounded-xl py-3 pl-4 pr-10 text-sm focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/50 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gold-500 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={passwordLoading}
+              className="w-full py-3.5 mt-2 rounded-xl font-extrabold bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 transition-all text-sm flex items-center justify-center gap-2 shadow-lg shadow-gold-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Lock size={16} />
+              <span>{passwordLoading ? 'Cambiando...' : 'Cambiar Contraseña'}</span>
+            </button>
+          </form>
         </div>
       )}
 

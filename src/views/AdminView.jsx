@@ -31,6 +31,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
   // --- ESTADOS DE PARTIDOS ---
   const [partidos, setPartidos] = useState([]);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState('Todos');
+  const [faseFilterAdmin, setFaseFilterAdmin] = useState('Todos');
   const [equipo1, setEquipo1] = useState('');
   const [equipo2, setEquipo2] = useState('');
   const [fecha, setFecha] = useState('');
@@ -977,6 +978,23 @@ export default function AdminView({ activeSection, onSectionChange }) {
             </button>
           </div>
 
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-brand-blue-900/20 border border-brand-blue-800/40 p-4 rounded-xl">
+            <span className="text-xs font-bold uppercase text-brand-blue-400">Filtrar por Fase:</span>
+            <select
+              value={faseFilterAdmin}
+              onChange={(e) => setFaseFilterAdmin(e.target.value)}
+              className="bg-brand-blue-900 border border-gold-500/20 text-white rounded-xl py-2 px-4 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-gold-500 cursor-pointer"
+            >
+              <option value="Todos">Todas las Fases</option>
+              <option value="Fase de Grupos">Fase de Grupos</option>
+              <option value="Dieciseisavos">Dieciseisavos</option>
+              <option value="Octavos">Octavos</option>
+              <option value="Cuartos">Cuartos</option>
+              <option value="Semifinal">Semifinal</option>
+              <option value="Final">Final</option>
+            </select>
+          </div>
+
           {pronosticosError && (
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm font-semibold flex items-center gap-2">
               <AlertCircle size={16} />
@@ -993,13 +1011,22 @@ export default function AdminView({ activeSection, onSectionChange }) {
             <div className="py-12 text-center text-gray-500">No hay partidos programados todavía.</div>
           ) : (
             <div className="space-y-6">
-              {partidos.map((partido) => {
-                // Filtrar pronósticos correspondientes a este partido
-                const pronosticosPartido = pronosticos.filter(
-                  p => p.partidoId === partido.id
-                );
+              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Final']
+                .filter(f => faseFilterAdmin === 'Todos' || faseFilterAdmin === f)
+                .map((faseName) => {
+                  const partidosFase = partidos.filter(p => p.fase === faseName);
+                  if (partidosFase.length === 0) return null;
 
-                return (
+                  return (
+                    <div key={faseName} className="space-y-4">
+                      <h4 className="text-sm font-black text-gold-500 tracking-wider uppercase border-b border-brand-blue-800/40 pb-2">{faseName}</h4>
+                      {partidosFase.map((partido) => {
+                        // Filtrar pronósticos correspondientes a este partido
+                        const pronosticosPartido = pronosticos.filter(
+                          p => p.partidoId === partido.id
+                        );
+
+                        return (
                   <div key={partido.id} className="p-5 rounded-2xl bg-brand-blue-900/30 border border-brand-blue-800/50 space-y-4 hover:border-gold-500/20 transition-all">
                     {/* Encabezado del Partido */}
                     <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-brand-blue-800/50">
@@ -1113,8 +1140,11 @@ export default function AdminView({ activeSection, onSectionChange }) {
                     )}
 
                   </div>
-                );
-              })}
+                        );
+                      })}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>

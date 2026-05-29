@@ -22,33 +22,31 @@ export function getBettingWindowStatus(fechaStr, horaStr) {
   // Fecha de inicio del partido en UTC (Colombia es UTC-5, entonces sumamos 5 horas)
   const kickoffUTC = Date.UTC(year, month - 1, day, hh + 5, mm, 0);
 
-  // Ventanas en milisegundos
-  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;    // Abre
-  const TEN_MINUTES_MS = 10 * 60 * 1000;        // Cierra
-
-  const openTimeUTC = kickoffUTC - TWO_HOURS_MS;
+  // Ventana en milisegundos
+  const TEN_MINUTES_MS = 10 * 60 * 1000;        // Cierra 10 minutos antes del inicio del partido
   const closeTimeUTC = kickoffUTC - TEN_MINUTES_MS;
 
   const nowUTC = Date.now();
 
-  if (nowUTC < openTimeUTC) {
-    const minutesLeft = Math.ceil((openTimeUTC - nowUTC) / 60000);
+  if (nowUTC <= closeTimeUTC) {
+    const minutesLeft = Math.ceil((closeTimeUTC - nowUTC) / 60000);
     const hoursLeft = Math.floor(minutesLeft / 60);
     const minsLeft = minutesLeft % 60;
-    return {
-      open: false,
-      state: "not_open_yet",
-      message: `Las apuestas abren en ${hoursLeft > 0 ? `${hoursLeft}h ` : ""}${minsLeft}min`,
-      minutesUntilOpen: minutesLeft,
-    };
-  }
+    
+    let timeMessage = '';
+    if (hoursLeft >= 24) {
+      const daysLeft = Math.floor(hoursLeft / 24);
+      timeMessage = `en ${daysLeft}d ${hoursLeft % 24}h`;
+    } else if (hoursLeft > 0) {
+      timeMessage = `en ${hoursLeft}h ${minsLeft}min`;
+    } else {
+      timeMessage = `en ${minsLeft}min`;
+    }
 
-  if (nowUTC >= openTimeUTC && nowUTC <= closeTimeUTC) {
-    const minutesLeft = Math.ceil((closeTimeUTC - nowUTC) / 60000);
     return {
       open: true,
       state: "open",
-      message: `Ventana de apuestas abierta — Cierra en ${minutesLeft}min`,
+      message: `Pronósticos abiertos — Cierran ${timeMessage}`,
       minutesUntilClose: minutesLeft,
     };
   }
@@ -57,6 +55,6 @@ export function getBettingWindowStatus(fechaStr, horaStr) {
   return {
     open: false,
     state: "closed",
-    message: "Las apuestas para este partido ya cerraron",
+    message: "Los pronósticos para este partido ya cerraron",
   };
 }
