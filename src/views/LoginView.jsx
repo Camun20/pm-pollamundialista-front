@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, KeyRound, User, AlertCircle } from 'lucide-react';
+import { KeyRound, User, AlertCircle } from 'lucide-react';
+import logoEmpresa from '../assets/logo-empresa.png';
+import logoMundial from '../assets/logo-mundial.png';
 
 export default function LoginView() {
   const { login } = useAuth();
@@ -43,14 +45,13 @@ export default function LoginView() {
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-gold-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-brand-blue-700/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex justify-center mb-3">
-          <div className="h-14 w-14 rounded-full bg-gold-500/10 border border-gold-500/20 flex items-center justify-center text-gold-500">
-            <Trophy size={28} />
-          </div>
+        <div className="flex justify-center items-center gap-6 mb-4">
+          <img src={logoEmpresa} alt="Atiempo" className="h-12 sm:h-16 object-contain drop-shadow-md" />
+          <img src={logoMundial} alt="Mundial 2026" className="h-12 sm:h-16 object-contain drop-shadow-md" />
         </div>
         
         <h2 className="text-2xl sm:text-3xl font-extrabold gold-gradient-text tracking-wide mb-1">
-          ¡Ingresa a la Polla!
+          ¡Comienza el Juego!
         </h2>
         <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">
           Pronostica con tus amigos y demuestra quién es el rey del fútbol.

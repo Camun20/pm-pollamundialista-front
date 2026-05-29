@@ -73,6 +73,13 @@ export default function UserView({ activeSection }) {
         golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
         ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
       }));
+
+      partidosList.sort((a, b) => {
+        const timeA = new Date(`${a.fecha}T${a.hora || '00:00'}`).getTime();
+        const timeB = new Date(`${b.fecha}T${b.hora || '00:00'}`).getTime();
+        return (timeA || 0) - (timeB || 0);
+      });
+
       const rawPronosticos = Array.isArray(pronosticosCargados) ? pronosticosCargados : [];
 
       const pronosticosList = rawPronosticos.map(pr => {
