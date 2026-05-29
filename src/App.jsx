@@ -31,7 +31,7 @@ function MainAppContent() {
         }
       } else if (hash) {
         const validAdminSections = ['partidos', 'fase-grupos', 'fase-16', 'fase-8', 'fase-4', 'fase-2', 'fase-1', 'pronosticos', 'usuarios', 'puntuacion'];
-        const validUserSections = ['mis-pronosticos', 'fase-grupos', 'fase-16', 'fase-8', 'fase-4', 'fase-2', 'fase-1', 'puntuacion'];
+        const validUserSections = ['mis-pronosticos', 'fase-grupos', 'fase-16', 'fase-8', 'fase-4', 'fase-2', 'fase-1', 'puntuacion', 'cambiar-password'];
         const isValid = user.rol === 'admin' 
           ? validAdminSections.includes(hash) 
           : validUserSections.includes(hash);
