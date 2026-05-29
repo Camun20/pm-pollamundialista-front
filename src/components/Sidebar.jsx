@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Menu, X, Trophy, BarChart2, Users, CalendarDays, LogOut, UserCircle2, ChevronRight,
-  Shield, Swords, Crown, Medal, CalendarPlus, Grid
+  Shield, Swords, Crown, Medal, CalendarPlus, Grid, KeyRound
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +27,7 @@ const USER_MENU = [
   { key: 'fase-2',          label: 'Semifinal',            Icon: Swords       },
   { key: 'fase-1',          label: 'Final',                Icon: Crown        },
   { key: 'puntuacion',      label: 'Tabla de Puntuación',  Icon: Medal        },
+  { key: 'cambiar-password',label: 'Cambiar Contraseña',   Icon: KeyRound     },
 ];
 
 export default function Sidebar({ activeSection, onSectionChange }) {

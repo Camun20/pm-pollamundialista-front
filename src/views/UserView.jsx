@@ -75,9 +75,9 @@ export default function UserView({ activeSection }) {
       }));
 
       partidosList.sort((a, b) => {
-        const timeA = new Date(`${a.fecha}T${a.hora || '00:00'}`).getTime();
-        const timeB = new Date(`${b.fecha}T${b.hora || '00:00'}`).getTime();
-        return (timeA || 0) - (timeB || 0);
+        const dtA = (a.fecha || '9999-99-99') + 'T' + (a.hora || '99:99');
+        const dtB = (b.fecha || '9999-99-99') + 'T' + (b.hora || '99:99');
+        return dtA.localeCompare(dtB);
       });
 
       const rawPronosticos = Array.isArray(pronosticosCargados) ? pronosticosCargados : [];
@@ -693,6 +693,12 @@ export default function UserView({ activeSection }) {
                   const pronosFase = misPronosticos.filter(pr => {
                     const match = partidos.find(p => p.id === pr.partidoId) || {};
                     return match.fase === fase;
+                  }).sort((a, b) => {
+                    const matchA = partidos.find(p => p.id === a.partidoId) || {};
+                    const matchB = partidos.find(p => p.id === b.partidoId) || {};
+                    const dtA = (matchA.fecha || '9999-99-99') + 'T' + (matchA.hora || '99:99');
+                    const dtB = (matchB.fecha || '9999-99-99') + 'T' + (matchB.hora || '99:99');
+                    return dtA.localeCompare(dtB);
                   });
 
                   if (pronosFase.length === 0) return null;
