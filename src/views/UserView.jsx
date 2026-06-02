@@ -586,7 +586,7 @@ export default function UserView({ activeSection }) {
         </div>
 
         {/* Selector de Penaltis / Clasificado interactivo */}
-        {showPenaltisProno && !yaPronosticado && (
+        {showPenaltisProno && partido.golesRealLocal === null && windowStatus.open && (
           <div className="mt-4 p-3 rounded-2xl bg-brand-blue-950 border border-gold-500/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-gold-500 font-bold flex items-center gap-1">
               🤔 Empate en eliminatoria. Selecciona quién clasifica:
@@ -626,7 +626,7 @@ export default function UserView({ activeSection }) {
           </div>
         )}
 
-        {yaPronosticado && pronosticoExistente && pronosticoExistente.golesLocal === pronosticoExistente.golesVisitante && partido.fase !== 'Fase de Grupos' && (
+        {yaPronosticado && pronosticoExistente && pronosticoExistente.golesLocal === pronosticoExistente.golesVisitante && partido.fase !== 'Fase de Grupos' && (!windowStatus.open || partido.golesRealLocal !== null) && (
           <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold flex items-center justify-center gap-1.5">
             <span>🔮 Pronosticaste que clasifica:</span>
             {renderFlag(pronosticoExistente.ganadorPenaltis)}
