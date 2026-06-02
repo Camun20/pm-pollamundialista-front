@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
+import { calcularPuntuacionYMensaje } from '../utils/points';
 import { getCountryFlagUrl } from '../utils/flags';
 import { getBettingWindowStatus } from '../utils/bettingWindow';
 import { 
@@ -61,18 +62,23 @@ export default function UserView({ activeSection }) {
       ]);
 
       const rawPartidos = Array.isArray(todosPartidos) ? todosPartidos : [];
-      const partidosList = rawPartidos.map(p => ({
-        id: p.partido_id || p.id,
-        equipo1: p.equipo1 || p.equipo_a || 'Local',
-        equipo2: p.equipo2 || p.equipo_b || 'Visitante',
-        fecha: p.fecha?.split('T')[0] || p.fecha || '',
-        hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
-        fase: p.fase || 'Fase de Grupos',
-        grupo: p.grupo || null,
-        golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-        golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
-        ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
-      }));
+      const partidosList = rawPartidos.map(p => {
+        const matchId = p.partido_id || p.id;
+        const localList = JSON.parse(localStorage.getItem('pm_local_partidos') || '[]');
+        const localMatch = localList.find(lm => lm.id === matchId);
+        return {
+          id: matchId,
+          equipo1: p.equipo1 || p.equipo_a || 'Local',
+          equipo2: p.equipo2 || p.equipo_b || 'Visitante',
+          fecha: p.fecha?.split('T')[0] || p.fecha || '',
+          hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+          fase: p.fase || 'Fase de Grupos',
+          grupo: p.grupo || null,
+          golesRealLocal: p.golesRealLocal !== undefined && p.golesRealLocal !== null ? p.golesRealLocal : (localMatch?.golesRealLocal !== undefined ? localMatch.golesRealLocal : null),
+          golesRealVisitante: p.golesRealVisitante !== undefined && p.golesRealVisitante !== null ? p.golesRealVisitante : (localMatch?.golesRealVisitante !== undefined ? localMatch.golesRealVisitante : null),
+          ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || localMatch?.ganadorPenaltis || null
+        };
+      });
 
       partidosList.sort((a, b) => {
         const dtA = (a.fecha || '9999-99-99') + 'T' + (a.hora || '99:99');
@@ -357,50 +363,12 @@ export default function UserView({ activeSection }) {
       userPronos.forEach(prono => {
         const match = partidos.find(p => p.id === prono.partidoId);
         if (match && match.golesRealLocal !== null && match.golesRealVisitante !== null) {
-          const pronoLocal = prono.golesLocal;
-          const pronoVisitante = prono.golesVisitante;
-          const realLocal = match.golesRealLocal;
-          const realVisitante = match.golesRealVisitante;
-          
-          const isRealDraw = realLocal === realVisitante;
-          const isPronoDraw = pronoLocal === pronoVisitante;
-          const isKnockout = match.fase !== 'Fase de Grupos';
-
-          if (isRealDraw && isKnockout) {
-            // Empate real en eliminatoria directa
-            const realClasifica = match.ganadorPenaltis;
-            const pronoClasifica = prono.ganadorPenaltis;
-            
-            const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
-            const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
-
-            if (acertoMarcadorExacto && acertoClasificado) {
-              totalPuntos += 5;
-              aciertosExactos += 1;
-            } else if (acertoClasificado) {
-              totalPuntos += 3;
-              aciertosGanador += 1;
-            }
-          } else {
-            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-              totalPuntos += 5;
-              aciertosExactos += 1;
-            } else {
-              const isRealLocalWin = realLocal > realVisitante;
-              const isRealVisitanteWin = realLocal < realVisitante;
-              
-              const isPronoLocalWin = pronoLocal > pronoVisitante;
-              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-              
-              if (
-                (isRealLocalWin && isPronoLocalWin) ||
-                (isRealVisitanteWin && isPronoVisitanteWin) ||
-                (isRealDraw && isPronoDraw)
-              ) {
-                totalPuntos += 3;
-                aciertosGanador += 1;
-              }
-            }
+          const res = calcularPuntuacionYMensaje(match, prono);
+          totalPuntos += res.puntos;
+          if (res.puntos === 5) {
+            aciertosExactos += 1;
+          } else if (res.puntos === 3 || res.puntos === 1) {
+            aciertosGanador += 1;
           }
         }
       });
@@ -432,6 +400,27 @@ export default function UserView({ activeSection }) {
     const gvInt = inputs.golesVisitante !== '' ? parseInt(inputs.golesVisitante) : null;
     const isEmpateDigitado = glInt !== null && gvInt !== null && glInt === gvInt;
     const showPenaltisProno = partido.fase !== 'Fase de Grupos' && isEmpateDigitado;
+
+    let puntosMsg = null;
+    let puntosColorClass = "";
+    let puntosBgClass = "";
+    if (partido.golesRealLocal !== null && pronosticoExistente) {
+      const res = calcularPuntuacionYMensaje(partido, pronosticoExistente);
+      puntosMsg = res.mensaje;
+      if (res.puntos === 5) {
+        puntosColorClass = "text-emerald-400 font-extrabold";
+        puntosBgClass = "bg-emerald-500/10 border-emerald-500/25 shadow-lg shadow-emerald-500/5";
+      } else if (res.puntos === 3) {
+        puntosColorClass = "text-yellow-400 font-bold";
+        puntosBgClass = "bg-yellow-500/10 border-yellow-500/25 shadow-lg shadow-yellow-500/5";
+      } else if (res.puntos === 1) {
+        puntosColorClass = "text-orange-400 font-bold";
+        puntosBgClass = "bg-orange-500/10 border-orange-500/25 shadow-lg shadow-orange-500/5";
+      } else {
+        puntosColorClass = "text-rose-400 font-semibold";
+        puntosBgClass = "bg-rose-500/10 border-rose-500/20";
+      }
+    }
 
     return (
       <div 
@@ -614,6 +603,12 @@ export default function UserView({ activeSection }) {
             <span>{matchError}</span>
           </div>
         )}
+        {puntosMsg && (
+          <div className={`mt-4 p-3.5 rounded-2xl border text-xs text-center flex items-center justify-center gap-2 ${puntosBgClass} ${puntosColorClass} transition-all`}>
+            <Trophy size={14} className="animate-pulse" />
+            <span>{puntosMsg}</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -717,72 +712,27 @@ export default function UserView({ activeSection }) {
                           let puntos = 0;
                           
                           if (tieneMarcadorReal) {
-                            const pronoLocal = pronostico.golesLocal;
-                            const pronoVisitante = pronostico.golesVisitante;
-                            const realLocal = partidoOriginal.golesRealLocal;
-                            const realVisitante = partidoOriginal.golesRealVisitante;
-                            const isRealDraw = realLocal === realVisitante;
-                            const isPronoDraw = pronoLocal === pronoVisitante;
-                            const isKnockout = partidoOriginal.fase !== 'Fase de Grupos';
-
-                            if (isRealDraw && isKnockout) {
-                              const realClasifica = partidoOriginal.ganadorPenaltis;
-                              const pronoClasifica = pronostico.ganadorPenaltis;
-                              const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
-                              const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
-
-                              if (acertoMarcadorExacto && acertoClasificado) {
-                                exacto = true;
-                                puntos = 5;
-                              } else if (acertoClasificado) {
-                                ganador = true;
-                                puntos = 3;
-                              } else {
-                                puntos = 0;
-                              }
-                            } else {
-                              if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-                                exacto = true;
-                                puntos = 5;
-                              } else {
-                                const isRealLocalWin = realLocal > realVisitante;
-                                const isRealVisitanteWin = realLocal < realVisitante;
-                                
-                                const isPronoLocalWin = pronoLocal > pronoVisitante;
-                                const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-                                
-                                if (
-                                  (isRealLocalWin && isPronoLocalWin) ||
-                                  (isRealVisitanteWin && isPronoVisitanteWin) ||
-                                  (isRealDraw && isPronoDraw)
-                                ) {
-                                  ganador = true;
-                                  puntos = 3;
-                                } else {
-                                  puntos = 0;
-                                }
-                              }
-                            }
-                          }
-
                           let statusText = 'Pronóstico Guardado';
                           let statusColorClass = 'text-gold-500';
                           let borderColorClass = 'border-l-gold-500';
                           let badgeColorClass = 'bg-gold-500/10 text-gold-500 border-gold-500/20';
                           
                           if (tieneMarcadorReal) {
-                            if (exacto) {
-                              statusText = '¡Acertaste al marcador! +5 puntos';
+                            const res = calcularPuntuacionYMensaje(partidoOriginal, pronostico);
+                            statusText = res.mensaje;
+                            if (res.puntos === 5) {
                               statusColorClass = 'text-emerald-400 font-extrabold';
                               borderColorClass = 'border-l-emerald-500 shadow-lg shadow-emerald-500/10';
                               badgeColorClass = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20';
-                            } else if (ganador) {
-                              statusText = 'Acertaste al ganador pero no al marcador +3 puntos';
+                            } else if (res.puntos === 3) {
                               statusColorClass = 'text-yellow-400 font-bold';
                               borderColorClass = 'border-l-yellow-500 shadow-lg shadow-yellow-500/5';
                               badgeColorClass = 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20';
+                            } else if (res.puntos === 1) {
+                              statusColorClass = 'text-orange-400 font-bold';
+                              borderColorClass = 'border-l-orange-500 shadow-lg shadow-orange-500/5';
+                              badgeColorClass = 'bg-orange-500/15 text-orange-400 border-orange-500/20';
                             } else {
-                              statusText = 'No acertaste nada +0 puntos';
                               statusColorClass = 'text-rose-400 font-semibold';
                               borderColorClass = 'border-l-rose-500 shadow-lg shadow-rose-500/5';
                               badgeColorClass = 'bg-rose-500/10 text-rose-300 border-rose-500/20';
@@ -850,12 +800,21 @@ export default function UserView({ activeSection }) {
             <div>
               <h2 className="text-2xl font-bold text-white tracking-wide">{getPhaseName(activeSection)}</h2>
               <div className="text-sm text-gray-400 mt-1">
-                Pronostica los marcadores de los partidos en juego. Gana 5 puntos por marcador exacto y 3 por acertar ganador/empate.
-                {activeSection !== 'fase-grupos' && (
-                  <p className="mt-2 text-gold-500 font-medium">
-                    ⚠️ En fases eliminatorias, si pronosticas un empate, debes elegir quién clasifica por penaltis. Si aciertas el equipo clasificado y el marcador exacto, obtienes 5 puntos. Si solo aciertas el clasificado, obtienes 3 puntos.
-                  </p>
-                )}
+                Pronostica los marcadores de los partidos en juego.
+                <div className="mt-3 bg-brand-blue-900/30 border border-gold-500/25 rounded-2xl p-4 text-xs text-gray-300 space-y-2">
+                  <div className="text-gold-500 font-black uppercase tracking-wider flex items-center gap-1.5 mb-1 text-[11px]">
+                    <Trophy size={13} className="text-gold-500 animate-bounce" />
+                    <span>Sistema Oficial de Puntuación de la Polla</span>
+                  </div>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 list-disc pl-4">
+                    <li><strong className="text-white">Marcador Exacto:</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar el resultado exacto (aplica a grupos y eliminatorias si no terminan en empate).</li>
+                    <li><strong className="text-white">Ganador/Empate en Grupos:</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar ganador o empate en fase de grupos sin marcador exacto.</li>
+                    <li><strong className="text-white">Exacto + Clasificado (Eliminatorias):</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar empate con marcador exacto y al clasificado por penaltis.</li>
+                    <li><strong className="text-white">Exacto sin Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate exacto pero fallar el clasificado.</li>
+                    <li><strong className="text-white">Empate + Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate no exacto pero sí al clasificado.</li>
+                    <li><strong className="text-white">Empate sin Clasificado (Eliminatorias):</strong> <span className="text-orange-400 font-bold">+1 punto</span> por acertar empate no exacto y fallar al clasificado.</li>
+                  </ul>
+                </div>
               </div>
             </div>
             <button 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../services/api';
+import { calcularPuntuacionYMensaje } from '../utils/points';
 import { getCountryFlagUrl } from '../utils/flags';
 import CountrySelector from '../components/CountrySelector';
 import EditUserModal from '../components/EditUserModal';
@@ -155,50 +156,12 @@ export default function AdminView({ activeSection, onSectionChange }) {
       userPronos.forEach(prono => {
         const match = partidos.find(p => p.id === prono.partidoId);
         if (match && match.golesRealLocal !== null && match.golesRealVisitante !== null) {
-          const pronoLocal = prono.golesLocal;
-          const pronoVisitante = prono.golesVisitante;
-          const realLocal = match.golesRealLocal;
-          const realVisitante = match.golesRealVisitante;
-          
-          const isRealDraw = realLocal === realVisitante;
-          const isPronoDraw = pronoLocal === pronoVisitante;
-          const isKnockout = match.fase !== 'Fase de Grupos';
-
-          if (isRealDraw && isKnockout) {
-            // Empate real en eliminatoria directa
-            const realClasifica = match.ganadorPenaltis;
-            const pronoClasifica = prono.ganadorPenaltis;
-            
-            const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
-            const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
-
-            if (acertoMarcadorExacto && acertoClasificado) {
-              totalPuntos += 5;
-              aciertosExactos += 1;
-            } else if (acertoClasificado) {
-              totalPuntos += 3;
-              aciertosGanador += 1;
-            }
-          } else {
-            if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-              totalPuntos += 5;
-              aciertosExactos += 1;
-            } else {
-              const isRealLocalWin = realLocal > realVisitante;
-              const isRealVisitanteWin = realLocal < realVisitante;
-              
-              const isPronoLocalWin = pronoLocal > pronoVisitante;
-              const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-              
-              if (
-                (isRealLocalWin && isPronoLocalWin) ||
-                (isRealVisitanteWin && isPronoVisitanteWin) ||
-                (isRealDraw && isPronoDraw)
-              ) {
-                totalPuntos += 3;
-                aciertosGanador += 1;
-              }
-            }
+          const res = calcularPuntuacionYMensaje(match, prono);
+          totalPuntos += res.puntos;
+          if (res.puntos === 5) {
+            aciertosExactos += 1;
+          } else if (res.puntos === 3 || res.puntos === 1) {
+            aciertosGanador += 1;
           }
         }
       });
@@ -352,31 +315,41 @@ export default function AdminView({ activeSection, onSectionChange }) {
       const data = await apiRequest('/partidos');
       let partidosList = [];
       if (data && Array.isArray(data)) {
-        partidosList = data.map(p => ({
-          id: p.id || p.partido_id,
-          equipo1: p.equipo1 || p.equipo_a,
-          equipo2: p.equipo2 || p.equipo_b,
-          fecha: p.fecha || '',
-          hora: p.hora || '',
-          fase: p.fase || 'Fase de Grupos',
-          grupo: p.grupo || null,
-          golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
-          ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
-        }));
+        partidosList = data.map(p => {
+          const matchId = p.id || p.partido_id;
+          const localList = JSON.parse(localStorage.getItem('pm_local_partidos') || '[]');
+          const localMatch = localList.find(lm => lm.id === matchId);
+          return {
+            id: matchId,
+            equipo1: p.equipo1 || p.equipo_a,
+            equipo2: p.equipo2 || p.equipo_b,
+            fecha: p.fecha || '',
+            hora: p.hora || '',
+            fase: p.fase || 'Fase de Grupos',
+            grupo: p.grupo || null,
+            golesRealLocal: p.golesRealLocal !== undefined && p.golesRealLocal !== null ? p.golesRealLocal : (localMatch?.golesRealLocal !== undefined ? localMatch.golesRealLocal : null),
+            golesRealVisitante: p.golesRealVisitante !== undefined && p.golesRealVisitante !== null ? p.golesRealVisitante : (localMatch?.golesRealVisitante !== undefined ? localMatch.golesRealVisitante : null),
+            ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || localMatch?.ganadorPenaltis || null
+          };
+        });
       } else if (data && Array.isArray(data.partidos)) {
-        partidosList = data.partidos.map(p => ({
-          id: p.partido_id || p.id,
-          equipo1: p.equipo_a || p.equipo1,
-          equipo2: p.equipo_b || p.equipo2,
-          fecha: p.fecha?.split('T')[0] || p.fecha || '',
-          hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
-          fase: p.fase || 'Fase de Grupos',
-          grupo: p.grupo || null,
-          golesRealLocal: p.golesRealLocal !== undefined ? p.golesRealLocal : null,
-          golesRealVisitante: p.golesRealVisitante !== undefined ? p.golesRealVisitante : null,
-          ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || null
-        }));
+        partidosList = data.partidos.map(p => {
+          const matchId = p.partido_id || p.id;
+          const localList = JSON.parse(localStorage.getItem('pm_local_partidos') || '[]');
+          const localMatch = localList.find(lm => lm.id === matchId);
+          return {
+            id: matchId,
+            equipo1: p.equipo_a || p.equipo1,
+            equipo2: p.equipo_b || p.equipo2,
+            fecha: p.fecha?.split('T')[0] || p.fecha || '',
+            hora: p.fecha?.split('T')[1]?.substring(0, 5) || p.hora || '',
+            fase: p.fase || 'Fase de Grupos',
+            grupo: p.grupo || null,
+            golesRealLocal: p.golesRealLocal !== undefined && p.golesRealLocal !== null ? p.golesRealLocal : (localMatch?.golesRealLocal !== undefined ? localMatch.golesRealLocal : null),
+            golesRealVisitante: p.golesRealVisitante !== undefined && p.golesRealVisitante !== null ? p.golesRealVisitante : (localMatch?.golesRealVisitante !== undefined ? localMatch.golesRealVisitante : null),
+            ganadorPenaltis: p.ganadorPenaltis || p.ganador_penaltis || localMatch?.ganadorPenaltis || null
+          };
+        });
       }
 
       const sortPartidos = (lista) => {
@@ -1077,45 +1050,13 @@ export default function AdminView({ activeSection, onSectionChange }) {
                           let ganador = false;
 
                           if (hasOfficialResult) {
-                            const pronoLocal = p.golesLocal;
-                            const pronoVisitante = p.golesVisitante;
-                            const realLocal = partido.golesRealLocal;
-                            const realVisitante = partido.golesRealVisitante;
-                            const isRealDraw = realLocal === realVisitante;
-                            const isPronoDraw = pronoLocal === pronoVisitante;
-                            const isKnockout = partido.fase !== 'Fase de Grupos';
-
-                            if (isRealDraw && isKnockout) {
-                              const realClasifica = partido.ganadorPenaltis;
-                              const pronoClasifica = p.ganadorPenaltis;
-                              const acertoClasificado = realClasifica && pronoClasifica && realClasifica === pronoClasifica;
-                              const acertoMarcadorExacto = pronoLocal === realLocal && pronoVisitante === realVisitante;
-
-                              if (acertoMarcadorExacto && acertoClasificado) {
-                                exacto = true;
-                              } else if (acertoClasificado) {
-                                ganador = true;
-                              }
-                            } else {
-                              if (pronoLocal === realLocal && pronoVisitante === realVisitante) {
-                                exacto = true;
-                              } else {
-                                const isRealLocalWin = realLocal > realVisitante;
-                                const isRealVisitanteWin = realLocal < realVisitante;
-                                
-                                const isPronoLocalWin = pronoLocal > pronoVisitante;
-                                const isPronoVisitanteWin = pronoLocal < pronoVisitante;
-                                
-                                if (
-                                  (isRealLocalWin && isPronoLocalWin) ||
-                                  (isRealVisitanteWin && isPronoVisitanteWin) ||
-                                  (isRealDraw && isPronoDraw)
-                                ) {
-                                  ganador = true;
-                                }
-                              }
-                            }
-                          }
+                             const res = calcularPuntuacionYMensaje(partido, p);
+                             if (res.puntos === 5) {
+                               exacto = true;
+                             } else if (res.puntos >= 1) {
+                               ganador = true;
+                             }
+                           }
 
                           let statusClasses = 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300';
                           if (hasOfficialResult) {
