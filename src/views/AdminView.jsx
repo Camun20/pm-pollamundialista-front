@@ -192,29 +192,32 @@ export default function AdminView({ activeSection, onSectionChange }) {
     return (
       <div key={partido.id} className="p-4 rounded-xl bg-brand-blue-900/40 border border-brand-blue-800/60 flex flex-col gap-3 hover:border-gold-500/20 transition-all">
         
-        <div className="flex flex-col justify-between items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           {/* Equipos */}
-          <div className="flex items-center gap-2 md:gap-4 w-full justify-center overflow-x-auto whitespace-nowrap scrollbar-none py-1 px-2">
-            <div className="flex items-center gap-2 justify-end text-right font-bold text-sm text-white shrink-0">
-              <span className="font-bold text-sm text-white whitespace-nowrap">{partido.equipo1}</span>
+          <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full md:flex-1 justify-center">
+            {/* Local Team */}
+            <div className="flex flex-col-reverse md:flex-row items-center gap-2 flex-1 justify-center md:justify-end text-center md:text-right font-bold text-sm text-white min-w-0 w-full">
+              <span className="font-bold text-sm text-white text-center md:text-right">{partido.equipo1}</span>
               {renderFlag(partido.equipo1)}
             </div>
+            {/* VS */}
             <div className="text-xs font-black px-2.5 py-1 rounded bg-brand-blue-800 text-brand-blue-400 shrink-0">VS</div>
-            <div className="flex items-center gap-2 justify-start font-bold text-sm text-white shrink-0">
+            {/* Visitor Team */}
+            <div className="flex flex-col md:flex-row items-center gap-2 flex-1 justify-center md:justify-start font-bold text-sm text-white min-w-0 w-full">
               {renderFlag(partido.equipo2)}
-              <span className="font-bold text-sm text-white whitespace-nowrap">{partido.equipo2}</span>
+              <span className="font-bold text-sm text-white text-center md:text-left">{partido.equipo2}</span>
             </div>
           </div>
 
           {/* Marcador Real y Info */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full shrink-0">
-            <div className="text-center">
-              <div className="text-[10px] sm:text-xs font-bold text-gray-400 flex items-center gap-1 justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 w-full md:w-auto shrink-0">
+            <div className="text-left sm:text-right w-full sm:w-auto">
+              <div className="text-[10px] sm:text-xs font-bold text-gray-400 flex items-center gap-1 justify-center sm:justify-end">
                 <Clock size={11} className="text-gold-500" />
                 <span>{partido.fecha} | {partido.hora}</span>
               </div>
               {partido.golesRealLocal !== null && (
-                <div className="text-[9px] text-emerald-400 font-bold mt-0.5 uppercase tracking-wider text-center">Resultado Registrado</div>
+                <div className="text-[9px] text-emerald-400 font-bold mt-0.5 uppercase tracking-wider text-center sm:text-right">Resultado Registrado</div>
               )}
             </div>
 
