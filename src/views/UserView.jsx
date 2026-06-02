@@ -382,6 +382,7 @@ export default function UserView({ activeSection }) {
       let totalPuntos = 0;
       let aciertosExactos = 0;
       let aciertosGanador = 0;
+      let aciertosEmpate = 0;
       
       userPronos.forEach(prono => {
         const match = partidos.find(p => p.id === prono.partidoId);
@@ -390,8 +391,10 @@ export default function UserView({ activeSection }) {
           totalPuntos += res.puntos;
           if (res.puntos === 5) {
             aciertosExactos += 1;
-          } else if (res.puntos === 3 || res.puntos === 1) {
+          } else if (res.puntos === 3) {
             aciertosGanador += 1;
+          } else if (res.puntos === 1) {
+            aciertosEmpate += 1;
           }
         }
       });
@@ -402,7 +405,8 @@ export default function UserView({ activeSection }) {
         rol: u.rol,
         puntos: totalPuntos,
         aciertosExactos,
-        aciertosGanador
+        aciertosGanador,
+        aciertosEmpate
       };
     });
     
@@ -776,23 +780,26 @@ export default function UserView({ activeSection }) {
                                   <span>{partidoOriginal.equipo2 || 'Visitante'}</span>
                                 </p>
                                 {tieneMarcadorReal && (
-                                  <p className="text-xs text-gray-400 mt-1">
-                                    Resultado real: <span className="font-bold text-white">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
-                                    {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
-                                      <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/15">
-                                        {renderFlag(partidoOriginal.ganadorPenaltis)}
-                                        <span>{partidoOriginal.ganadorPenaltis} clasifica</span>
-                                      </span>
-                                    )}
-                                  </p>
-                                )}
-                                {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && (
-                                  <p className="text-[10px] text-gold-500 font-semibold mt-1 flex items-center gap-1.5">
-                                    <span>Pronosticaste que clasifica:</span>
-                                    {renderFlag(pronostico.ganadorPenaltis)}
-                                    <span className="text-white underline">{pronostico.ganadorPenaltis || 'No seleccionado'}</span>
-                                  </p>
-                                )}
+                                   <div className="text-xs text-gray-400 mt-1.5 space-y-1">
+                                     <p>
+                                       Resultado real: <span className="font-extrabold text-white bg-brand-blue-900 px-2 py-0.5 rounded border border-brand-blue-800">{partidoOriginal.golesRealLocal} - {partidoOriginal.golesRealVisitante}</span>
+                                     </p>
+                                     {partidoOriginal.fase !== 'Fase de Grupos' && partidoOriginal.golesRealLocal === partidoOriginal.golesRealVisitante && partidoOriginal.ganadorPenaltis && (
+                                       <p className="text-[10px] text-emerald-400 font-extrabold flex items-center gap-1.5 mt-1 bg-emerald-500/5 py-1 px-2.5 rounded-lg border border-emerald-500/10 w-fit">
+                                         <span>🏆 Clasificó Oficialmente:</span>
+                                         {renderFlag(partidoOriginal.ganadorPenaltis)}
+                                         <span className="underline">{partidoOriginal.ganadorPenaltis}</span>
+                                       </p>
+                                     )}
+                                   </div>
+                                 )}
+                                 {partidoOriginal.fase !== 'Fase de Grupos' && pronostico.golesLocal === pronostico.golesVisitante && (
+                                   <p className="text-[10px] text-gold-500 font-semibold mt-1 flex items-center gap-1.5 bg-gold-500/5 py-1 px-2.5 rounded-lg border border-gold-500/10 w-fit">
+                                     <span>🔮 Tu Clasificado Pronosticado:</span>
+                                     {renderFlag(pronostico.ganadorPenaltis)}
+                                     <span className="text-white underline">{pronostico.ganadorPenaltis || 'No seleccionado'}</span>
+                                   </p>
+                                 )}
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
                                 <div className={`font-extrabold text-lg px-4 py-2 rounded-xl border ${badgeColorClass}`}>
@@ -824,14 +831,22 @@ export default function UserView({ activeSection }) {
                     <Trophy size={13} className="text-gold-500 animate-bounce" />
                     <span>Sistema Oficial de Puntuación de la Polla</span>
                   </div>
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 list-disc pl-4">
-                    <li><strong className="text-white">Marcador Exacto:</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar el resultado exacto (aplica a grupos y eliminatorias si no terminan en empate).</li>
-                    <li><strong className="text-white">Ganador/Empate en Grupos:</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar ganador o empate en fase de grupos sin marcador exacto.</li>
-                    <li><strong className="text-white">Exacto + Clasificado (Eliminatorias):</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar empate con marcador exacto y al clasificado por penaltis.</li>
-                    <li><strong className="text-white">Exacto sin Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate exacto pero fallar el clasificado.</li>
-                    <li><strong className="text-white">Empate + Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate no exacto pero sí al clasificado.</li>
-                    <li><strong className="text-white">Empate sin Clasificado (Eliminatorias):</strong> <span className="text-orange-400 font-bold">+1 punto</span> por acertar empate no exacto y fallar al clasificado.</li>
-                  </ul>
+                  {activeSection === 'fase-grupos' ? (
+                    <ul className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 list-disc pl-4">
+                      <li><strong className="text-white">Marcador Exacto:</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar el resultado exacto.</li>
+                      <li><strong className="text-white">Ganador/Empate sin marcador exacto:</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar ganador o empate en fase de grupos sin marcador exacto.</li>
+                      <li><strong className="text-white">No acertó nada:</strong> <span className="text-rose-400 font-bold">+0 puntos</span> por no acertar nada.</li>
+                    </ul>
+                  ) : (
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 list-disc pl-4">
+                      <li><strong className="text-white">Marcador Exacto:</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar el resultado exacto.</li>
+                      <li><strong className="text-white">Exacto + Clasificado (Eliminatorias):</strong> <span className="text-emerald-400 font-bold">+5 puntos</span> por acertar empate con marcador exacto y al clasificado por penaltis.</li>
+                      <li><strong className="text-white">Exacto sin Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate exacto pero fallar el clasificado.</li>
+                      <li><strong className="text-white">Empate + Clasificado (Eliminatorias):</strong> <span className="text-yellow-400 font-bold">+3 puntos</span> por acertar empate no exacto pero sí al clasificado.</li>
+                      <li><strong className="text-white">Empate sin Clasificado (Eliminatorias):</strong> <span className="text-orange-400 font-bold">+1 punto</span> por acertar empate no exacto y fallar al clasificado.</li>
+                      <li><strong className="text-white">No acertó nada:</strong> <span className="text-rose-400 font-bold">+0 puntos</span> por no acertar nada.</li>
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>
@@ -931,7 +946,8 @@ export default function UserView({ activeSection }) {
                   <th className="py-3 px-4">Posición</th>
                   <th className="py-3 px-4">Jugador</th>
                   <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
-                  <th className="py-3 px-4 text-center">Ganador/Emp (3 pts)</th>
+                  <th className="py-3 px-4 text-center">Ganador (3 pts)</th>
+                  <th className="py-3 px-4 text-center">Empate (1 pt)</th>
                   <th className="py-3 px-4 text-right">Puntos Totales</th>
                 </tr>
               </thead>
@@ -962,6 +978,7 @@ export default function UserView({ activeSection }) {
                       </td>
                       <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
                       <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
+                      <td className="py-3 px-4 text-center font-bold text-orange-400">{row.aciertosEmpate}</td>
                       <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
                     </tr>
                   );

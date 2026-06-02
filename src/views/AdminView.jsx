@@ -148,10 +148,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
     const playersOnly = usuarios.filter(user => user.rol !== 'admin');
     const leaderboard = playersOnly.map(user => {
       const userPronos = pronosticos.filter(p => p.userCedula === user.username);
-      
       let totalPuntos = 0;
       let aciertosExactos = 0;
       let aciertosGanador = 0;
+      let aciertosEmpate = 0;
       
       userPronos.forEach(prono => {
         const match = partidos.find(p => p.id === prono.partidoId);
@@ -160,8 +160,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
           totalPuntos += res.puntos;
           if (res.puntos === 5) {
             aciertosExactos += 1;
-          } else if (res.puntos === 3 || res.puntos === 1) {
+          } else if (res.puntos === 3) {
             aciertosGanador += 1;
+          } else if (res.puntos === 1) {
+            aciertosEmpate += 1;
           }
         }
       });
@@ -172,7 +174,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
         rol: user.rol,
         puntos: totalPuntos,
         aciertosExactos,
-        aciertosGanador
+        aciertosGanador,
+        aciertosEmpate
       };
     });
     
@@ -269,7 +272,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                     : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
                 }`}
               >
-                Clasifica {partido.equipo1}
+                {renderFlag(partido.equipo1)} Clasifica {partido.equipo1}
               </button>
               <button
                 type="button"
@@ -283,14 +286,16 @@ export default function AdminView({ activeSection, onSectionChange }) {
                     : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
                 }`}
               >
-                Clasifica {partido.equipo2}
+                {renderFlag(partido.equipo2)} Clasifica {partido.equipo2}
               </button>
             </div>
           </div>
         )}
         {partido.golesRealLocal !== null && partido.golesRealVisitante !== null && partido.golesRealLocal === partido.golesRealVisitante && partido.ganadorPenaltis && (
-          <div className="text-center text-[10px] text-emerald-400 bg-emerald-500/5 py-1 px-2.5 border border-emerald-500/10 rounded-lg font-bold">
-            Clasificado Oficial en Penales: <span className="underline">{partido.ganadorPenaltis}</span>
+          <div className="text-center text-[10px] text-emerald-400 bg-emerald-500/5 py-1.5 px-2.5 border border-emerald-500/10 rounded-lg font-bold flex items-center justify-center gap-1">
+            <span>Clasificado Oficial en Penales:</span>
+            {renderFlag(partido.ganadorPenaltis)}
+            <span className="underline font-bold text-white">{partido.ganadorPenaltis}</span>
           </div>
         )}
       </div>
@@ -419,11 +424,6 @@ export default function AdminView({ activeSection, onSectionChange }) {
       const data = await apiRequest('/pronosticos');
       let pronosticosList = [];
       let rawPronosticos = [];
-
-
-
-
-
 
       if (Array.isArray(data)) {
         rawPronosticos = data;
@@ -603,7 +603,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
           partidoId,
           golesRealLocal: golesLocal,
           golesRealVisitante: golesVisitante,
-          ganadorPenaltis
+          ganadorPenaltis,
+          ganador_penaltis: ganadorPenaltis
         })
       });
     } catch (err) {
@@ -1018,89 +1019,90 @@ export default function AdminView({ activeSection, onSectionChange }) {
                         );
 
                         return (
-                  <div key={partido.id} className="p-5 rounded-2xl bg-brand-blue-900/30 border border-brand-blue-800/50 space-y-4 hover:border-gold-500/20 transition-all">
-                    {/* Encabezado del Partido */}
-                    <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-brand-blue-800/50">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {renderFlag(partido.equipo1)}
-                        <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo1}</span>
-                        <span className="text-xs font-black px-2 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
-                        {renderFlag(partido.equipo2)}
-                        <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo2}</span>
-                        {partido.golesRealLocal !== null && partido.golesRealVisitante !== null && (
-                          <span className="ml-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider">
-                            Oficial: {partido.golesRealLocal} - {partido.golesRealVisitante}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-400 font-bold bg-[#090d16] px-3 py-1 rounded-full border border-brand-blue-800">
-                        {partido.fecha} | {partido.hora}
-                      </div>
-                    </div>
-
-                    {/* Pronósticos de los usuarios */}
-                    {pronosticosPartido.length === 0 ? (
-                      <div className="text-xs text-gray-500 italic py-2">Ningún jugador ha enviado pronóstico para este partido todavía.</div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {pronosticosPartido.map((p, idx) => {
-                          const hasOfficialResult = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
-                          
-                          let exacto = false;
-                          let ganador = false;
-
-                          if (hasOfficialResult) {
-                             const res = calcularPuntuacionYMensaje(partido, p);
-                             if (res.puntos === 5) {
-                               exacto = true;
-                             } else if (res.puntos >= 1) {
-                               ganador = true;
-                             }
-                           }
-
-                          let statusClasses = 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300';
-                          if (hasOfficialResult) {
-                            if (exacto) {
-                              statusClasses = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5 font-bold';
-                            } else if (ganador) {
-                              statusClasses = 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400 font-semibold';
-                            } else {
-                              statusClasses = 'bg-rose-500/10 border-rose-500/20 text-rose-300';
-                            }
-                          }
-
-                          return (
-                            <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-white truncate">{p.nombreJugador || p.usuario || 'Jugador'}</p>
-                                <p className="text-[10px] text-gray-500 font-semibold flex items-center gap-1.5 flex-wrap">
-                                  <span>CC @{p.userCedula || p.usuario || 'CC'}</span>
-                                  {hasOfficialResult && (
-                                    <span className={`text-[9px] font-bold px-1 rounded ${
-                                      exacto ? 'text-emerald-400 bg-emerald-400/10' : ganador ? 'text-yellow-400 bg-yellow-400/10' : 'text-rose-400 bg-rose-400/10'
-                                    }`}>
-                                      {exacto ? '+5 pts' : ganador ? '+3 pts' : '+0 pts'}
-                                    </span>
-                                  )}
-                                </p>
-                                {partido.fase !== 'Fase de Grupos' && p.golesLocal === p.golesVisitante && (
-                                   <p className="text-[9px] text-gold-500/80 font-bold mt-0.5 flex items-center gap-1">
-                                     <span>Clasifica:</span>
-                                     {renderFlag(p.ganadorPenaltis)}
-                                     <span className="underline">{p.ganadorPenaltis || 'No seleccionado'}</span>
-                                   </p>
-                                 )}
+                          <div key={partido.id} className="p-5 rounded-2xl bg-brand-blue-900/30 border border-brand-blue-800/50 space-y-4 hover:border-gold-500/20 transition-all">
+                            {/* Encabezado del Partido */}
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pb-3 border-b border-brand-blue-800/50">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {renderFlag(partido.equipo1)}
+                                <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo1}</span>
+                                <span className="text-xs font-black px-2 py-0.5 rounded bg-brand-blue-800 text-brand-blue-400">VS</span>
+                                {renderFlag(partido.equipo2)}
+                                <span className="font-extrabold text-white text-sm sm:text-base">{partido.equipo2}</span>
+                                {partido.golesRealLocal !== null && partido.golesRealVisitante !== null && (
+                                  <span className="ml-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider">
+                                    Oficial: {partido.golesRealLocal} - {partido.golesRealVisitante}
+                                  </span>
+                                )}
                               </div>
-                              <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${statusClasses}`}>
-                                <span>{p.marcadorCombinado}</span>
+                              <div className="text-xs text-gray-400 font-bold bg-[#090d16] px-3 py-1 rounded-full border border-brand-blue-800">
+                                {partido.fecha} | {partido.hora}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
 
-                  </div>
+                            {/* Pronósticos de los usuarios */}
+                            {pronosticosPartido.length === 0 ? (
+                              <div className="text-xs text-gray-500 italic py-2">Ningún jugador ha enviado pronóstico para este partido todavía.</div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {pronosticosPartido.map((p, idx) => {
+                                  const hasOfficialResult = partido.golesRealLocal !== null && partido.golesRealVisitante !== null;
+                                  let exacto = false;
+                                  let ganador = false;
+                                  let puntosObtenidos = 0;
+
+                                  if (hasOfficialResult) {
+                                    const res = calcularPuntuacionYMensaje(partido, p);
+                                    puntosObtenidos = res.puntos;
+                                    if (res.puntos === 5) {
+                                      exacto = true;
+                                    } else if (res.puntos === 3 || res.puntos === 1) {
+                                      ganador = true;
+                                    }
+                                  }
+
+                                  let statusClasses = 'bg-brand-blue-900/40 border-brand-blue-800 text-gray-300';
+                                  if (hasOfficialResult) {
+                                    if (exacto) {
+                                      statusClasses = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5 font-bold';
+                                    } else if (ganador) {
+                                      statusClasses = 'bg-yellow-500/15 border-yellow-500/30 text-yellow-400 font-semibold';
+                                    } else {
+                                      statusClasses = 'bg-rose-500/10 border-rose-500/20 text-rose-300';
+                                    }
+                                  }
+
+                                  return (
+                                    <div key={idx} className="p-3 rounded-xl bg-brand-blue-950 border border-brand-blue-900/60 flex items-center justify-between gap-3 hover:border-gold-500/10 transition-all">
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-bold text-white truncate">{p.nombreJugador || p.usuario || 'Jugador'}</p>
+                                        <p className="text-[10px] text-gray-500 font-semibold flex items-center gap-1.5 flex-wrap">
+                                          <span>CC @{p.userCedula || p.usuario || 'CC'}</span>
+                                          {hasOfficialResult && (
+                                            <span className={`text-[9px] font-bold px-1 rounded ${
+                                              puntosObtenidos === 5 ? 'text-emerald-400 bg-emerald-400/10' : puntosObtenidos >= 1 ? 'text-yellow-400 bg-yellow-400/10' : 'text-rose-400 bg-rose-400/10'
+                                            }`}>
+                                              +{puntosObtenidos} pts
+                                            </span>
+                                          )}
+                                        </p>
+                                        {partido.fase !== 'Fase de Grupos' && p.golesLocal === p.golesVisitante && (
+                                          <p className="text-[9px] text-gold-500/80 font-bold mt-0.5 flex items-center gap-1">
+                                            <span>Clasifica:</span>
+                                            {renderFlag(p.ganadorPenaltis)}
+                                            <span className="underline">{p.ganadorPenaltis || 'No seleccionado'}</span>
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-sm font-black tracking-wider transition-all ${statusClasses}`}>
+                                        <span>{p.marcadorCombinado}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                          </div>
                         );
                       })}
                     </div>
@@ -1322,7 +1324,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   <th className="py-3 px-4">Jugador</th>
                   <th className="py-3 px-4">Cédula</th>
                   <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
-                  <th className="py-3 px-4 text-center">Ganador/Emp (3 pts)</th>
+                  <th className="py-3 px-4 text-center">Ganador (3 pts)</th>
+                  <th className="py-3 px-4 text-center">Empate (1 pt)</th>
                   <th className="py-3 px-4 text-right">Puntos Totales</th>
                 </tr>
               </thead>
@@ -1351,6 +1354,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       <td className="py-3 px-4 text-gray-500">@{row.username}</td>
                       <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
                       <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
+                      <td className="py-3 px-4 text-center font-bold text-orange-400">{row.aciertosEmpate}</td>
                       <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
                     </tr>
                   );
