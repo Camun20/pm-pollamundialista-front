@@ -29,7 +29,10 @@ export function calcularPuntuacionYMensaje(partido, pronostico) {
   if (isRealDraw && isKnockout) {
     const realClasifica = partido.ganadorPenaltis;
     const pronoClasifica = pronostico.ganadorPenaltis;
-    const acertoClasificado = !!(realClasifica && pronoClasifica && realClasifica === pronoClasifica);
+    
+    const realClasificaClean = realClasifica ? realClasifica.toString().trim().toLowerCase() : '';
+    const pronoClasificaClean = pronoClasifica ? pronoClasifica.toString().trim().toLowerCase() : '';
+    const acertoClasificado = !!(realClasificaClean && pronoClasificaClean && realClasificaClean === pronoClasificaClean);
 
     if (acertoMarcadorExacto && acertoClasificado) {
       // Regla 3: Si acierta que el resultado es un empate (resultado exacto) y acierta al clasificado

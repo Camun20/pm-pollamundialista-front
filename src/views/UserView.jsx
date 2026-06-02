@@ -610,10 +610,18 @@ export default function UserView({ activeSection }) {
         )}
 
         {yaPronosticado && pronosticoExistente && pronosticoExistente.golesLocal === pronosticoExistente.golesVisitante && partido.fase !== 'Fase de Grupos' && (
-          <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold flex items-center justify-center gap-1">
-            <span>Pronosticaste que clasifica:</span>
+          <div className="mt-4 text-center text-xs text-gold-500/90 bg-gold-500/5 py-2 px-3 border border-gold-500/10 rounded-xl font-semibold flex items-center justify-center gap-1.5">
+            <span>🔮 Pronosticaste que clasifica:</span>
             {renderFlag(pronosticoExistente.ganadorPenaltis)}
             <span className="underline font-bold text-white">{pronosticoExistente.ganadorPenaltis || 'No seleccionado'}</span>
+          </div>
+        )}
+
+        {partido.golesRealLocal !== null && partido.golesRealLocal === partido.golesRealVisitante && partido.fase !== 'Fase de Grupos' && partido.ganadorPenaltis && (
+          <div className="mt-2 text-center text-xs text-emerald-400 bg-emerald-500/5 py-2 px-3 border border-emerald-500/10 rounded-xl font-semibold flex items-center justify-center gap-1.5">
+            <span>🏆 Clasificó Oficialmente:</span>
+            {renderFlag(partido.ganadorPenaltis)}
+            <span className="underline font-extrabold text-white">{partido.ganadorPenaltis}</span>
           </div>
         )}
 
