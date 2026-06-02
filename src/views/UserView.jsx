@@ -707,11 +707,6 @@ export default function UserView({ activeSection }) {
                         {pronosFase.map((pronostico) => {
                           const partidoOriginal = partidos.find(p => p.id === pronostico.partidoId) || {};
                           const tieneMarcadorReal = partidoOriginal.golesRealLocal !== null && partidoOriginal.golesRealVisitante !== null;
-                          let exacto = false;
-                          let ganador = false;
-                          let puntos = 0;
-                          
-                          if (tieneMarcadorReal) {
                           let statusText = 'Pronóstico Guardado';
                           let statusColorClass = 'text-gold-500';
                           let borderColorClass = 'border-l-gold-500';
