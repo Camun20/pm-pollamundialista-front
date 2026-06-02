@@ -58,7 +58,13 @@ export default function UserView({ activeSection }) {
       const [todosPartidos, pronosticosCargados, usuariosCargados] = await Promise.all([
         apiRequest('/partidos'),
         apiRequest('/pronosticos'),
-        apiRequest('/usuarios').catch(() => [])
+        apiRequest('/usuarios').catch(() => {
+          const cached = localStorage.getItem('pm_local_usuarios');
+          if (cached) {
+            try { return JSON.parse(cached); } catch (e) {}
+          }
+          return [];
+        })
       ]);
 
       const rawPartidos = Array.isArray(todosPartidos) ? todosPartidos : [];
@@ -102,13 +108,30 @@ export default function UserView({ activeSection }) {
         };
       });
 
+      let listUsuarios = [];
+      if (Array.isArray(usuariosCargados) && usuariosCargados.length > 0) {
+        listUsuarios = usuariosCargados;
+      } else {
+        const cached = localStorage.getItem('pm_local_usuarios');
+        if (cached) {
+          try { listUsuarios = JSON.parse(cached); } catch (e) {}
+        }
+      }
+
+      const rawUsuarios = Array.isArray(listUsuarios) ? listUsuarios : [];
+      const normalizedUsuarios = rawUsuarios.map(u => ({
+        username: u.username || u.usernameUsuario || '',
+        nombre: u.nombre || 'Jugador',
+        rol: u.rol || 'user'
+      }));
+
       setPartidos(partidosList);
       setTodosPronosticos(pronosticosList);
-      setUsuarios(usuariosCargados);
+      setUsuarios(normalizedUsuarios);
 
 
       // Filtrar pronósticos para el usuario actual (usando su cédula)
-      const filtrados = pronosticosList.filter(p => p.usuario === user.username.toString().trim());
+      const filtrados = pronosticosList.filter(p => p.usuario.toString().trim() === user.username.toString().trim());
       setMisPronosticos(filtrados);
 
       // Inicializar los inputs de apuestas preservando los valores que el usuario tenga digitados

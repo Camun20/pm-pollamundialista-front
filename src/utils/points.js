@@ -17,8 +17,8 @@ export function calcularPuntuacionYMensaje(partido, pronostico) {
     return { puntos: 0, mensaje: 'Pronóstico Guardado' };
   }
 
-  const pronoLocal = parseInt(pronostico.golesLocal);
-  const pronoVisitante = parseInt(pronostico.golesVisitante);
+  const pronoLocal = isNaN(parseInt(pronostico.golesLocal)) ? 0 : parseInt(pronostico.golesLocal);
+  const pronoVisitante = isNaN(parseInt(pronostico.golesVisitante)) ? 0 : parseInt(pronostico.golesVisitante);
   
   const isKnockout = partido.fase !== 'Fase de Grupos';
   const isRealDraw = realLocal === realVisitante;
