@@ -428,6 +428,8 @@ export default function UserView({ activeSection }) {
     const isEmpateDigitado = glInt !== null && gvInt !== null && glInt === gvInt;
     const showPenaltisProno = partido.fase !== 'Fase de Grupos' && isEmpateDigitado;
 
+    const noAposto = !yaPronosticado && (partido.golesRealLocal !== null || !windowStatus.open);
+
     let puntosMsg = null;
     let puntosColorClass = "";
     let puntosBgClass = "";
@@ -583,13 +585,14 @@ export default function UserView({ activeSection }) {
                   ...pronosticoInputs,
                   [partido.id]: { ...inputs, ganadorPenaltis: partido.equipo1 }
                 })}
-                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all flex items-center gap-1.5 ${
                   inputs.ganadorPenaltis === partido.equipo1
                     ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
                     : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
                 }`}
               >
-                {partido.equipo1}
+                {renderFlag(partido.equipo1)}
+                <span>{partido.equipo1}</span>
               </button>
               <button
                 type="button"
@@ -597,13 +600,14 @@ export default function UserView({ activeSection }) {
                   ...pronosticoInputs,
                   [partido.id]: { ...inputs, ganadorPenaltis: partido.equipo2 }
                 })}
-                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all ${
+                className={`px-3.5 py-1.5 rounded-lg border font-bold transition-all flex items-center gap-1.5 ${
                   inputs.ganadorPenaltis === partido.equipo2
                     ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
                     : 'bg-brand-blue-900 border-brand-blue-800 text-gray-400 hover:text-white'
                 }`}
               >
-                {partido.equipo2}
+                {renderFlag(partido.equipo2)}
+                <span>{partido.equipo2}</span>
               </button>
             </div>
           </div>
@@ -636,6 +640,12 @@ export default function UserView({ activeSection }) {
           <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
             <AlertCircle size={14} />
             <span>{matchError}</span>
+          </div>
+        )}
+        {noAposto && (
+          <div className="mt-4 p-3.5 rounded-2xl border text-xs text-center flex items-center justify-center gap-2 bg-rose-500/10 border-rose-500/20 text-rose-400 font-extrabold uppercase tracking-wider transition-all">
+            <AlertCircle size={14} className="animate-pulse" />
+            <span>No registraste ninguna apuesta</span>
           </div>
         )}
         {puntosMsg && (
