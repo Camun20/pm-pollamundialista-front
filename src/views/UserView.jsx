@@ -498,11 +498,11 @@ export default function UserView({ activeSection }) {
 
         {/* Cuerpo del Partido: Equipos e Inputs */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6">
-          <div className="flex items-center justify-between w-full md:max-w-2xl gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between w-full md:max-w-2xl gap-6">
             
             {/* Local Team Container */}
-            <div className="flex flex-col items-center flex-1 text-center space-y-3">
-              <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center w-full sm:w-auto sm:flex-1 gap-4 sm:gap-3">
+              <div className="flex items-center sm:flex-col gap-3 sm:gap-2">
                 <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
                   {getCountryFlagUrl(partido.equipo1) ? (
                     <img src={getCountryFlagUrl(partido.equipo1)} alt={partido.equipo1} className="w-full h-full object-cover scale-110" />
@@ -525,14 +525,14 @@ export default function UserView({ activeSection }) {
             </div>
 
             {/* VS Separator */}
-            <div className="flex flex-col items-center shrink-0 px-2 self-start pt-2">
+            <div className="flex sm:flex-col items-center justify-center shrink-0 py-2">
               <span className="text-xs font-black px-3 py-1 rounded-full bg-brand-blue-800 text-brand-blue-400 uppercase tracking-wider">VS</span>
-              <span className="text-xl font-bold text-gold-500/50 mt-4">-</span>
+              <span className="hidden sm:inline text-xl font-bold text-gold-500/50 mt-4">-</span>
             </div>
 
             {/* Visitante Team Container */}
-            <div className="flex flex-col items-center flex-1 text-center space-y-3">
-              <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-row-reverse sm:flex-col items-center justify-between sm:justify-center w-full sm:w-auto sm:flex-1 gap-4 sm:gap-3">
+              <div className="flex flex-row-reverse sm:flex-col items-center gap-3 sm:gap-2">
                 <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
                   {getCountryFlagUrl(partido.equipo2) ? (
                     <img src={getCountryFlagUrl(partido.equipo2)} alt={partido.equipo2} className="w-full h-full object-cover scale-110" />
@@ -782,7 +782,7 @@ export default function UserView({ activeSection }) {
                           return (
                             <div 
                               key={pronostico.id} 
-                              className={`glass-card rounded-2xl p-4 border-l-4 flex justify-between items-center bg-brand-blue-900/20 hover:brightness-105 transition-all ${borderColorClass}`}
+                              className={`glass-card rounded-2xl p-4 border-l-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-brand-blue-900/20 hover:brightness-105 transition-all ${borderColorClass}`}
                             >
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
