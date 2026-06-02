@@ -406,7 +406,8 @@ export default function UserView({ activeSection }) {
         puntos: totalPuntos,
         aciertosExactos,
         aciertosGanador,
-        aciertosEmpate
+        aciertosEmpate,
+        pronosticosTotales: userPronos.length
       };
     });
     
@@ -450,6 +451,19 @@ export default function UserView({ activeSection }) {
         puntosBgClass = "bg-rose-500/10 border-rose-500/20";
       }
     }
+
+    const inputLocal = inputs.golesLocal;
+    const inputVisitante = inputs.golesVisitante;
+    const inputPenaltis = inputs.ganadorPenaltis || '';
+    const guardadoLocal = pronosticoExistente?.golesLocal?.toString() || '';
+    const guardadoVisitante = pronosticoExistente?.golesVisitante?.toString() || '';
+    const guardadoPenaltis = pronosticoExistente?.ganadorPenaltis || '';
+
+    const haCambiado = yaPronosticado && (
+      inputLocal !== guardadoLocal ||
+      inputVisitante !== guardadoVisitante ||
+      inputPenaltis !== guardadoPenaltis
+    );
 
     return (
       <div 
@@ -498,11 +512,11 @@ export default function UserView({ activeSection }) {
 
         {/* Cuerpo del Partido: Equipos e Inputs */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-6">
-          <div className="flex flex-col md:flex-row items-center justify-between w-full md:max-w-2xl gap-6">
+          <div className="flex flex-row items-center justify-between w-full md:max-w-2xl gap-2 sm:gap-6">
             
             {/* Local Team Container */}
-            <div className="flex flex-col md:flex-col items-center justify-center w-full md:w-auto md:flex-1 gap-3">
-              <div className="flex flex-col md:flex-col items-center gap-2">
+            <div className="flex flex-col items-center justify-center flex-1 gap-3 min-w-0">
+              <div className="flex flex-col items-center gap-2">
                 <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
                   {getCountryFlagUrl(partido.equipo1) ? (
                     <img src={getCountryFlagUrl(partido.equipo1)} alt={partido.equipo1} className="w-full h-full object-cover scale-110" />
@@ -519,7 +533,7 @@ export default function UserView({ activeSection }) {
                 value={inputs.golesLocal}
                 onChange={(e) => handleInputChange(partido.id, 'golesLocal', e.target.value)}
                 placeholder="0"
-                disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                disabled={partido.golesRealLocal !== null || !windowStatus.open}
                 className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               />
             </div>
@@ -530,8 +544,8 @@ export default function UserView({ activeSection }) {
             </div>
 
             {/* Visitante Team Container */}
-            <div className="flex flex-col md:flex-col items-center justify-center w-full md:w-auto md:flex-1 gap-3">
-              <div className="flex flex-col md:flex-col items-center gap-2">
+            <div className="flex flex-col items-center justify-center flex-1 gap-3 min-w-0">
+              <div className="flex flex-col items-center gap-2">
                 <div className="h-10 w-10 rounded-full overflow-hidden border border-brand-blue-800/40 shrink-0 bg-brand-blue-950 flex items-center justify-center">
                   {getCountryFlagUrl(partido.equipo2) ? (
                     <img src={getCountryFlagUrl(partido.equipo2)} alt={partido.equipo2} className="w-full h-full object-cover scale-110" />
@@ -548,7 +562,7 @@ export default function UserView({ activeSection }) {
                 value={inputs.golesVisitante}
                 onChange={(e) => handleInputChange(partido.id, 'golesVisitante', e.target.value)}
                 placeholder="0"
-                disabled={partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado}
+                disabled={partido.golesRealLocal !== null || !windowStatus.open}
                 className="w-16 bg-brand-blue-900 border border-gold-500/20 text-gold-500 rounded-xl py-2 px-3 text-center focus:outline-none focus:ring-1 focus:ring-gold-500 font-extrabold text-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               />
             </div>
@@ -559,14 +573,14 @@ export default function UserView({ activeSection }) {
           <div className="w-full md:w-auto flex justify-center items-center">
             <button
               onClick={() => handleEnviarPronostico(partido.id, partido)}
-              disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || yaPronosticado || (showPenaltisProno && !inputs.ganadorPenaltis)}
+              disabled={isLoading || partido.golesRealLocal !== null || !windowStatus.open || (yaPronosticado && !haCambiado) || (showPenaltisProno && !inputs.ganadorPenaltis)}
               className={`w-full md:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm transition-all flex items-center justify-center gap-2 ${
-                yaPronosticado 
+                yaPronosticado && !haCambiado
                   ? "bg-brand-blue-800/80 text-emerald-400 border border-emerald-500/20 cursor-default" 
                   : "bg-gradient-to-r from-gold-600 to-gold-500 text-black hover:brightness-110 active:scale-95 shadow-lg shadow-gold-500/10"
               } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
-              <span>{isLoading ? "Guardando..." : yaPronosticado ? "Pronóstico Guardado" : "Guardar Pronóstico"}</span>
+              <span>{isLoading ? "Guardando..." : (yaPronosticado ? (haCambiado ? "Actualizar Pronóstico" : "Pronóstico Guardado") : "Guardar Pronóstico")}</span>
             </button>
           </div>
         </div>
@@ -965,6 +979,7 @@ export default function UserView({ activeSection }) {
                   <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
                   <th className="py-3 px-4 text-center">Ganador (3 pts)</th>
                   <th className="py-3 px-4 text-center">Empate (1 pt)</th>
+                  <th className="py-3 px-4 text-center">Total Apuestas</th>
                   <th className="py-3 px-4 text-right">Puntos Totales</th>
                 </tr>
               </thead>
@@ -996,6 +1011,7 @@ export default function UserView({ activeSection }) {
                       <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
                       <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
                       <td className="py-3 px-4 text-center font-bold text-orange-400">{row.aciertosEmpate}</td>
+                      <td className="py-3 px-4 text-center font-bold text-gray-300">{row.pronosticosTotales}</td>
                       <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
                     </tr>
                   );

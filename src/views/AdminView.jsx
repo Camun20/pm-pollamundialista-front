@@ -175,7 +175,8 @@ export default function AdminView({ activeSection, onSectionChange }) {
         puntos: totalPuntos,
         aciertosExactos,
         aciertosGanador,
-        aciertosEmpate
+        aciertosEmpate,
+        pronosticosTotales: userPronos.length
       };
     });
     
@@ -1330,6 +1331,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   <th className="py-3 px-4 text-center">Pleno (5 pts)</th>
                   <th className="py-3 px-4 text-center">Ganador (3 pts)</th>
                   <th className="py-3 px-4 text-center">Empate (1 pt)</th>
+                  <th className="py-3 px-4 text-center">Total Apuestas</th>
                   <th className="py-3 px-4 text-right">Puntos Totales</th>
                 </tr>
               </thead>
@@ -1359,6 +1361,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                       <td className="py-3 px-4 text-center font-bold text-emerald-400">{row.aciertosExactos}</td>
                       <td className="py-3 px-4 text-center font-bold text-brand-blue-400">{row.aciertosGanador}</td>
                       <td className="py-3 px-4 text-center font-bold text-orange-400">{row.aciertosEmpate}</td>
+                      <td className="py-3 px-4 text-center font-bold text-gray-300">{row.pronosticosTotales}</td>
                       <td className="py-3 px-4 text-right font-black text-gold-500 text-base">{row.puntos} pts</td>
                     </tr>
                   );
