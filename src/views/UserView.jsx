@@ -475,6 +475,14 @@ export default function UserView({ activeSection }) {
         {/* Encabezado del partido (Fecha, hora, alertas) */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-gray-400 pb-4 border-b border-brand-blue-800/40">
           <div className="flex items-center gap-3">
+            {partido.grupo && (
+              <>
+                <span className="text-gold-500 font-extrabold uppercase">
+                  Grupo {partido.grupo}
+                </span>
+                <span>•</span>
+              </>
+            )}
             <span className="flex items-center gap-1">
               <Calendar size={12} className="text-brand-blue-600" />
               {partido.fecha}
@@ -895,7 +903,7 @@ export default function UserView({ activeSection }) {
               No hay partidos activos en este momento.
             </div>
           ) : activeSection === 'fase-grupos' ? (
-            // Fase de Grupos organizada de Grupo A a L
+            // Fase de Grupos organizada de manera plana y cronológica
             <div className="space-y-8">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-brand-blue-900/20 border border-brand-blue-800/40 p-4 rounded-xl">
                 <span className="text-xs font-bold uppercase text-brand-blue-400">Filtrar por Grupo del Mundial:</span>
@@ -911,24 +919,25 @@ export default function UserView({ activeSection }) {
                 </select>
               </div>
 
-              {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
-                .filter(grp => selectedGroupFilter === 'Todos' || selectedGroupFilter === grp)
-                .map((grp) => {
-                const partidosGrupo = partidos.filter(p => p.fase === 'Fase de Grupos' && p.grupo === grp);
-                
+              {(() => {
+                const partidosGrupo = partidos.filter(
+                  p => p.fase === 'Fase de Grupos' && (selectedGroupFilter === 'Todos' || p.grupo === selectedGroupFilter)
+                );
+
+                if (partidosGrupo.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-400 italic text-center py-8">
+                      No hay partidos programados para este filtro en este momento.
+                    </p>
+                  );
+                }
+
                 return (
-                  <div key={grp} className="space-y-4">
-                    <h3 className="text-lg font-black text-gold-500 tracking-wider uppercase border-b border-brand-blue-800/40 pb-2">Grupo {grp}</h3>
-                    {partidosGrupo.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic pl-2">No hay partidos programados para este grupo aún.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-4">
-                        {partidosGrupo.map((partido) => renderUserMatchCard(partido))}
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 gap-4">
+                    {partidosGrupo.map((partido) => renderUserMatchCard(partido))}
                   </div>
                 );
-              })}
+              })()}
             </div>
           ) : (
             // Otras Fases: Lista plana de partidos
