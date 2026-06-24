@@ -51,8 +51,10 @@ export default function UserView({ activeSection }) {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [todosPartidos, pronosticosCargados, usuariosCargados] = await Promise.all([
@@ -275,7 +277,7 @@ export default function UserView({ activeSection }) {
       setApuestaSuccess(prev => ({ ...prev, [partidoId]: true }));
       
       // Recargar datos actualizados
-      await loadData();
+      await loadData(true);
       
       setTimeout(() => {
         setApuestaSuccess(prev => ({ ...prev, [partidoId]: false }));

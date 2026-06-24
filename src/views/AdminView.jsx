@@ -318,8 +318,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
   };
 
   // Carga inicial y recarga
-  const loadPartidos = async () => {
-    setLoadingPartidos(true);
+  const loadPartidos = async (silent = false) => {
+    if (!silent) {
+      setLoadingPartidos(true);
+    }
     try {
       // Intentar obtener partidos de AWS
       const data = await apiRequest('/partidos');
@@ -422,8 +424,10 @@ export default function AdminView({ activeSection, onSectionChange }) {
     return [];
   };
 
-  const loadPronosticos = async () => {
-    setLoadingPronosticos(true);
+  const loadPronosticos = async (silent = false) => {
+    if (!silent) {
+      setLoadingPronosticos(true);
+    }
     setPronosticosError(null);
     try {
       const data = await apiRequest('/pronosticos');
@@ -638,7 +642,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
     });
     localStorage.setItem('pm_local_pronosticos', JSON.stringify(updatedPronos));
 
-    await Promise.all([loadPartidos(), loadPronosticos()]);
+    await Promise.all([loadPartidos(true), loadPronosticos(true)]);
     setSavingScoreId(null);
   };
 
