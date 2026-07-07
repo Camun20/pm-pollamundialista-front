@@ -139,6 +139,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
       case 'fase-8': return 'Octavos';
       case 'fase-4': return 'Cuartos';
       case 'fase-2': return 'Semifinal';
+      case 'fase-3': return 'Tercer Lugar';
       case 'fase-1': return 'Final';
       default: return '';
     }
@@ -850,6 +851,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
                   <option value="Octavos">Octavos</option>
                   <option value="Cuartos">Cuartos</option>
                   <option value="Semifinal">Semifinal</option>
+                  <option value="Tercer Lugar">Tercer Lugar</option>
                   <option value="Final">Final</option>
                 </select>
               </div>
@@ -992,6 +994,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
               <option value="Octavos">Octavos</option>
               <option value="Cuartos">Cuartos</option>
               <option value="Semifinal">Semifinal</option>
+              <option value="Tercer Lugar">Tercer Lugar</option>
               <option value="Final">Final</option>
             </select>
           </div>
@@ -1012,7 +1015,7 @@ export default function AdminView({ activeSection, onSectionChange }) {
             <div className="py-12 text-center text-gray-500">No hay partidos programados todavía.</div>
           ) : (
             <div className="space-y-6">
-              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Final']
+              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Tercer Lugar', 'Final']
                 .filter(f => faseFilterAdmin === 'Todos' || faseFilterAdmin === f)
                 .map((faseName) => {
                   const partidosFase = partidos.filter(p => p.fase === faseName);

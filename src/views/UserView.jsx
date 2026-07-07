@@ -368,6 +368,7 @@ export default function UserView({ activeSection }) {
       case 'fase-8': return 'Octavos';
       case 'fase-4': return 'Cuartos';
       case 'fase-2': return 'Semifinal';
+      case 'fase-3': return 'Tercer Lugar';
       case 'fase-1': return 'Final';
       default: return '';
     }
@@ -748,11 +749,12 @@ export default function UserView({ activeSection }) {
                   <option value="Octavos">Octavos de Final</option>
                   <option value="Cuartos">Cuartos de Final</option>
                   <option value="Semifinal">Semifinal</option>
+                  <option value="Tercer Lugar">Tercer Lugar</option>
                   <option value="Final">Final</option>
                 </select>
               </div>
 
-              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Final']
+              {['Fase de Grupos', 'Dieciseisavos', 'Octavos', 'Cuartos', 'Semifinal', 'Tercer Lugar', 'Final']
                 .filter(fase => faseFilterUser === 'Todos' || faseFilterUser === fase)
                 .map((fase) => {
                   const pronosFase = misPronosticos.filter(pr => {
